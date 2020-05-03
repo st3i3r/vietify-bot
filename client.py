@@ -1,14 +1,12 @@
-import configparser
-import json
-import os
 import asyncio
-import telethon
-from telethon.tl.types import PeerChannel
-from telethon.tl.functions.messages import GetHistoryRequest
-from telethon.tl.functions.messages import SearchRequest
-import time
+import configparser
+import os
 
-#Parse Info
+import telethon
+from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.types import PeerChannel
+
+# Parse Info
 config = configparser.ConfigParser()
 config.read("config.ini")
 
@@ -17,7 +15,6 @@ api_hash = config['Telegram']['api_hash']
 phone = config['Telegram']['phone']
 username = config['Telegram']['username']
 default_url = config['Telegram']['default_channel_url']
-
 
 # Create Telegram client
 client = telethon.TelegramClient(username, api_id=api_id, api_hash=api_hash)
@@ -36,7 +33,7 @@ async def main():
             await client.sign_in(password=input("Password: "))
 
     # Get channel
-    #user_input_channel = input("Enter chanel (URL or entity): ")
+    # user_input_channel = input("Enter chanel (URL or entity): ")
     user_input_channel = ''
 
     if user_input_channel.isdigit():
@@ -63,14 +60,14 @@ async def main():
         print(f"Total messages: {total_messages}")
 
         get_hisory = client(GetHistoryRequest(
-                        peer=my_channel,
-                        offset_id=offset_id,
-                        offset_date=None,
-                        add_offset=0,
-                        limit=100,
-                        max_id=0,
-                        min_id=0,
-                        hash=0))
+            peer=my_channel,
+            offset_id=offset_id,
+            offset_date=None,
+            add_offset=0,
+            limit=100,
+            max_id=0,
+            min_id=0,
+            hash=0))
         get_media = client.download_media(my_channel)
         tasks = get_hisory, get_media
         history, medias = await asyncio.gather(*tasks)
