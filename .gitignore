@@ -1,3 +1,6 @@
 config.ini
 pwn40.session
 venv
+.idea
+__pycache__
+
