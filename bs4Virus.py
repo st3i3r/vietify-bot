@@ -7,12 +7,12 @@ class VirusUpdater:
 
     def __init__(self):
         self.url = 'https://www.worldometers.info/coronavirus/#countries/'
-        self.data = self.get_live_data()
 
     def __str__(self):
         return self.data.to_string()
 
-    def get_live_data(self):
+    @property
+    def data(self):
         response = requests.get(url=self.url).text
         soup = BeautifulSoup(response, 'html.parser')
 

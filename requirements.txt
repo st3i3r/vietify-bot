@@ -21,7 +21,6 @@ PySocks==1.7.1
 pyTelegramBotAPI==3.6.7
 python-dateutil==2.8.1
 python-telegram-bot==12.4.2
-pytube3==9.6.4
 pytz==2019.3
 requests==2.23.0
 rsa==4.0
