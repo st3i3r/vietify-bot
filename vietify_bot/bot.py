@@ -1,16 +1,19 @@
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
 from telegram import InlineQueryResultArticle, InputTextMessageContent, ReplyKeyboardMarkup, InlineKeyboardButton, \
     InlineKeyboardMarkup
+from telegram.error import NetworkError
+from telegram import ChatAction
 from functools import wraps
 from botocore.exceptions import ClientError
-import telegram
 import logging
 import requests
 import json
-import os
 import bs4Virus
 import boto3
 import configparser
+from lxml.html import fromstring
+from itertools import cycle
+import youtubedl
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -25,6 +28,22 @@ dog_url = config["dog"]["DOG_URL"]
 music_dir = config["default"]["music_dir"]
 music_bucket_name = config["aws"]["music_bucket"]
 rest_uri = config["aws"]["rest_uri"]
+
+
+# Get proxies from free-proxy-list.net
+def get_proxies():
+    """Return a list of proxies"""
+
+    url = "https://free-proxy-list.net/"
+    response = requests.get(url)
+    parser = fromstring(response.text)
+    proxies = set()
+    for i in parser.xpath("//tbody/tr")[:10]:
+        if 'yes' in i[6].text:
+            host = i[0].text
+            port = i[1].text
+            proxies.add("https://" + ":".join([host, port]))
+    return proxies
 
 
 # AWS things
@@ -85,7 +104,18 @@ def send_upload_audio_action(func):
 
     @wraps(func)
     def command_func(update, context, *args, **kwargs):
-        context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=telegram.ChatAction.UPLOAD_AUDIO)
+        context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=ChatAction.UPLOAD_AUDIO)
+        return func(update, context, *args, **kwargs)
+
+    return command_func
+
+
+def send_upload_video_action(func):
+    """Send upload action while processing func command"""
+
+    @wraps(func)
+    def command_func(update, context, *args, **kwargs):
+        context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=ChatAction.UPLOAD_VIDEO)
         return func(update, context, *args, **kwargs)
 
     return command_func
@@ -96,7 +126,7 @@ def send_typing_action(func):
 
     @wraps(func)
     def command_func(update, context, *args, **kwargs):
-        context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.ChatAction.TYPING)
+        context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         return func(update, context, *args, **kwargs)
 
     return command_func
@@ -107,7 +137,7 @@ def send_upload_photo_action(func):
 
     @wraps(func)
     def command_func(update, context, *args, **kwargs):
-        context.bot.send_chat_action(chat_id=update.effective_chat.id, action=telegram.ChatAction.UPLOAD_PHOTO)
+        context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.UPLOAD_PHOTO)
         return func(update, context, *args, **kwargs)
 
     return command_func
@@ -183,6 +213,7 @@ def corona_menu_keyboard(country_list):
 def music(update, context):
     """upload music file with specified index
     to bot channel. """
+
     music_list = list_s3_music()
     index = int(context.args[0])
     context.chat_data['index'] = index
@@ -300,25 +331,44 @@ def callback_file_select(update, context):
     music_list = context.chat_data["music_list"]
 
     query.answer()
-    query.edit_message_text(text="Downloading file ...")
+    query.edit_message_text(text="Uploading file ...")
 
     data = query.data
-    if data.isdigit():
-        context.chat_data["index"] = data
-        context.chat_data["music_list"] = music_list
-        upload_music_to_bot(update, context)
+    index = int(data.split("_")[-1])
+
+    context.chat_data["index"] = index
+    context.chat_data["music_list"] = music_list
+    upload_music_to_bot(update, context)
 
 
 def download_audio(update, context):
     query = update.callback_query
     url = context.chat_data['url']
-    logging.info("Your audio is downloading ...")
+    logging.info(f"Downloading audio {url}")
+    filename = youtubedl.download_audio(url)
+
+    query.edit_message_text(f"Uploading audio {filename}")
+    context.bot.send_audio(chat_id=update.effective_chat.id,
+                           audio=open(f"/tmp/{filename}", 'rb'),
+                           timeout=1000)
 
 
+@send_upload_audio_action
 def download_video(update, context):
-    logging.info("Your video is downloading ...")
+    # query = update.callback_query
+    # url = context.chat_data['url']
+    # logging.info(f"Downloading video {url}")
+    # filename = youtubedl.download_video(url)
+    # logging.info(f"File saved to /tmp/{filename}")
+
+    # query.edit_message_text(f"Uploading video {filename}")
+    # context.bot.send_video(chat_id=update.effective_chat.id,
+    #                        video=open(f"/tmp/{filename}", 'rb'),
+    #                        timeout=200000)
+    pass
 
 
+@send_upload_audio_action
 def upload_music_to_bot(update, context):
     files = context.chat_data["music_list"]
     index = int(context.chat_data["index"])
@@ -403,9 +453,10 @@ def set_timer(update, context):
     context.job_queue.run_once(callback_alarm, user_timer, context=update.message.chat_id)
 
 
-def main():
+def main(proxy=None):
     logging.info("Running main func.")
-    updater = Updater(token=bot_token, use_context=True)
+    request_kwargs = {'proxy_url': proxy}
+    updater = Updater(token=bot_token, use_context=True, request_kwargs=request_kwargs)
     dispatcher = updater.dispatcher
     j_queue = updater.job_queue
 
@@ -438,7 +489,7 @@ def main():
     dispatcher.add_handler(corona_handler)
     dispatcher.add_handler(CallbackQueryHandler(callback_country_select, pattern="^corona_[a-zA-Z]+$"))
 
-    dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be'), youtube_link_handle))
+    dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be|youtube.com'), youtube_link_handle))
     dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download_audio'))
     dispatcher.add_handler(CallbackQueryHandler(download_video, pattern='download_video'))
 
@@ -457,4 +508,15 @@ if __name__ == '__main__':
     #  files = os.listdir('/home/viet/Music')
     #  file_list = list(map(lambda x: os.path.join(music_dir, x), files))
     #  upload_files_to_bucket(file_list[120:140])
-    main()
+
+    logging.info("Getting proxy list.")
+    proxies = get_proxies()
+    proxy_pool = cycle(proxies)
+
+    while True:
+        try:
+            proxy = next(proxy_pool)
+            logging.info("Using proxy: {}".format(proxy))
+            main(proxy=None)
+        except NetworkError:
+            continue

@@ -1,21 +1,39 @@
+from __future__ import unicode_literals
 import youtube_dl
-import re
 
-URL = "https://www.youtube.com/watch?v=3BnqYYNmjDk"
-
-ytdl_opts = {
+ytdl_audio_opts = {
     'format': 'bestaudio/best',
+    'noplaylist': True,
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
         'preferredcodec': 'm4a',
         'preferredquality': '500',
     }],
     'outtmpl': '%(title)s.%(ext)s',
-    'quiet': False
+    'quiet': True
 }
 
+
+ytdl_video_opts = {
+    'format': 'bestvideo/best',
+    'outtmpl': '/tmp/%(title)s.%(ext)s',
+    'quiet': True
+}
+
+
+def download_audio(url):
+    with youtube_dl.YoutubeDL(ytdl_audio_opts) as ytdl:
+        info = ytdl.extract_info(url, download=True)
+
+    return ".".join([info['title'], 'm4a'])
+
+
+def download_video(url):
+    with youtube_dl.YoutubeDL(ytdl_video_opts) as ytdl:
+        info = ytdl.extract_info(url, download=True)
+
+    return ".".join([info['title'], "mp4"])
+
+
 if __name__ == "__main__":
-    with youtube_dl.YoutubeDL(ytdl_opts) as ytdl:
-        info = ytdl.extract_info(URL, download=False)
-        url = info["url"]
-        print(url)
+    download_video("https://www.youtube.com/watch?v=wJnBTPUQS5A")

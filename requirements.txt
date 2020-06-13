@@ -5,6 +5,7 @@ bs4==0.0.1
 certifi==2019.11.28
 cffi==1.14.0
 chardet==3.0.4
+colorama==0.4.3
 configparser==5.0.0
 cryptography==2.8
 decorator==4.4.2
@@ -12,6 +13,7 @@ docutils==0.15.2
 future==0.18.2
 idna==2.9
 jmespath==0.9.5
+lxml==4.5.1
 numpy==1.18.2
 pandas==1.0.3
 pyaes==1.6.1
@@ -27,8 +29,9 @@ rsa==4.0
 s3transfer==0.3.3
 six==1.14.0
 soupsieve==2.0
+telegram==0.0.1
 Telethon==1.11.3
 tornado==6.0.4
 typing-extensions==3.7.4.2
 urllib3==1.25.8
-youtube-dl==2020.5.3
+youtube-dl==2020.6.6
