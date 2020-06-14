@@ -23,20 +23,29 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 config = configparser.ConfigParser()
 config.read("../config.ini")
 
-AWS_ID = config["aws"]["aws_access_key_id"]
-AWS_KEY = config["aws"]["aws_secret_access_key"]
-BOT_TOKEN = config["telegram"]['TOKEN']
-DOG_URL = config["dog"]["DOG_URL"]
-MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
-REST_URI = config["aws"]["rest_uri"]
+
 
 mode = os.getenv("MODE")
 
 if mode == "dev":
+    AWS_ID = config["aws"]["aws_access_key_id"]
+    AWS_KEY = config["aws"]["aws_secret_access_key"]
+    BOT_TOKEN = config["telegram"]['TOKEN']
+    DOG_URL = config["dog"]["DOG_URL"]
+    MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
+    REST_URI = config["aws"]["rest_uri"]
+
     def run(updater):
         updater.start_polling()
         updater.idle()
 elif mode == "prod":
+    AWS_ID = os.environ.get("AWS_ID")
+    AWS_KEY = os.environ.get("AWS_KEY")
+    BOT_TOKEN = os.environ.get("TOKEN")
+    DOG_URL = os.environ.get("DOG_URL")
+    MUSIC_BUCKET_NAME = os.environ.get("MUSIC_BUCKET_NAME")
+    REST_URI = os.environ.get("REST_URI")
+
     def run(updater):
         PORT = os.environ.get("PORT", 8443)
         HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
@@ -196,7 +205,7 @@ def youtube_menu_keyboard():
     return InlineKeyboardMarkup(keyboard)
 
 
-def music_list_keyboard(start=0, paginator=10):
+def music_list_keyboard(start=0, paginator=8):
     music_list = list_s3_music()
 
     keyboard = []
@@ -281,14 +290,14 @@ def music_list(update, context):
     music_list = list_s3_music()
 
     context.chat_data["current_page"] = context.chat_data.get("current_page", 1)
-    context.chat_data["paginator"] = 10
+    context.chat_data["paginator"] = 8
     context.chat_data["music_list"] = music_list
     context.chat_data["total_page"] = len(music_list) // context.chat_data["paginator"] + 1
 
     context.bot.edit_message_text(text=f"Page: {context.chat_data['current_page']}/{context.chat_data['total_page']}",
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
-                                  reply_markup=music_list_keyboard(paginator=context.chat_data["paginator"]))
+                                  reply_markup=music_list_keyboard())
 
 
 def next_music_page(update, context):
@@ -378,6 +387,10 @@ def callback_country_select(update, context):
 
 
 def start_bot(update, context):
+    if mode == 'dev':
+        update.message.reply_text(text="Running in dev mode")
+    else:
+        update.message.reply_text(text="Running in production mode")
     response = f"Hi, {update.effective_chat.username}. Are you a 0 or a 1 ?"
     update.message.reply_text(text=response, reply_markup=main_menu_keyboard())
 
