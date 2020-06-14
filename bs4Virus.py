@@ -9,34 +9,26 @@ class VirusUpdater:
     def __init__(self):
         self.url = 'https://www.worldometers.info/coronavirus/#countries/'
 
-    def test(self):
-        response = requests.get(url=self.url)
-        parser = fromstring(response.text)
-        for i in parser.xpath("//tbody/tr"):
-            rank = i[1]
-            #country = i[1].text() or '-'
-
-            print(rank)
-
     @property
     def data(self):
         response = requests.get(url=self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
 
-
+        ranks = []
         countries = []
         total_cases = []
         new_cases = []
         total_deaths = []
         new_deaths = []
         total_recovered = []
-        COUNT = 150
+        COUNT = 200
 
         tbody = soup.find('tbody')
         rows = tbody.find_all('tr')
 
         for i in range(COUNT):
             data = rows[i].find_all('td')
+            ranks.append(data[0].text)
             countries.append(data[1].text.replace("\n", "").lower())
             total_cases.append(data[2].text)
             new_cases.append(data[3].text)
@@ -45,6 +37,7 @@ class VirusUpdater:
             total_recovered.append(data[6].text)
 
         data = pandas.DataFrame({
+            'ranks': ranks,
             'countries': countries,
             'total_cases': total_cases,
             'new_cases': new_cases,
@@ -61,13 +54,10 @@ class VirusUpdater:
         try:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
-            response = f"============================\n" \
-                       f"{data}\n" \
-                       f"rank:{str(index[0]-7).rjust(20)}\n"
         except IndexError:
-            response = "Country not found."
+            data = "Country not found."
 
-        return response
+        return data
 
     def __str__(self):
         return self.data.to_string()
@@ -75,4 +65,4 @@ class VirusUpdater:
 
 if __name__ == '__main__':
     a = VirusUpdater()
-    print(a.get_by_country('russia'))
+    a.test()

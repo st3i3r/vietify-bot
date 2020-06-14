@@ -12,28 +12,31 @@ ytdl_audio_opts = {
     'outtmpl': '%(title)s.%(ext)s',
     'quiet': True
 }
-
+opts = {}
 
 ytdl_video_opts = {
-    'format': 'bestvideo/best',
-    'outtmpl': '/tmp/%(title)s.%(ext)s',
+    'format': 'best',
     'quiet': True
 }
 
 
-def download_audio(url):
+def get_audio_url(url):
     with youtube_dl.YoutubeDL(ytdl_audio_opts) as ytdl:
-        info = ytdl.extract_info(url, download=True)
+        info = ytdl.extract_info(url, download=False)
 
-    return ".".join([info['title'], 'm4a'])
+    return info['url']
 
 
-def download_video(url):
+def get_video_url(url):
     with youtube_dl.YoutubeDL(ytdl_video_opts) as ytdl:
-        info = ytdl.extract_info(url, download=True)
+        info = ytdl.extract_info(url, download=False)
 
-    return ".".join([info['title'], "mp4"])
+    return info['url']
 
 
 if __name__ == "__main__":
-    download_video("https://www.youtube.com/watch?v=wJnBTPUQS5A")
+    url = "https://www.youtube.com/watch?v=PKMyyJ8jQak"
+    with youtube_dl.YoutubeDL(ytdl_audio_opts) as ytdl:
+        info = ytdl.extract_info(url, download=False)
+    for key, value in info.items():
+        print(f"{key}: {value}")

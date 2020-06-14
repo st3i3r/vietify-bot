@@ -5,6 +5,8 @@ from telegram.error import NetworkError
 from telegram import ChatAction
 from functools import wraps
 from botocore.exceptions import ClientError
+import os
+import sys
 import logging
 import requests
 import json
@@ -21,14 +23,31 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 config = configparser.ConfigParser()
 config.read("../config.ini")
 
-aws_id = config["aws"]["aws_access_key_id"]
-aws_key = config["aws"]["aws_secret_access_key"]
-bot_token = config["telegram"]['TOKEN']
-dog_url = config["dog"]["DOG_URL"]
-music_dir = config["default"]["music_dir"]
-music_bucket_name = config["aws"]["music_bucket"]
-rest_uri = config["aws"]["rest_uri"]
+AWS_ID = config["aws"]["aws_access_key_id"]
+AWS_KEY = config["aws"]["aws_secret_access_key"]
+BOT_TOKEN = config["telegram"]['TOKEN']
+DOG_URL = config["dog"]["DOG_URL"]
+MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
+REST_URI = config["aws"]["rest_uri"]
 
+mode = os.getenv("MODE")
+
+if mode == "dev":
+    def run(updater):
+        updater.start_polling()
+        updater.idle()
+elif mode == "prod":
+    def run(updater):
+        PORT = os.environ.get("PORT", 8443)
+        HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
+
+        updater.start_webhook(listen='0.0.0.0',
+                              port=PORT,
+                              url_path=BOT_TOKEN)
+        updater.bot.set_webhook(f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}")
+else:
+    logging.error("No mode specified.")
+    sys.exit(1)
 
 # Get proxies from free-proxy-list.net
 def get_proxies():
@@ -50,21 +69,21 @@ def get_proxies():
 def list_s3_music():
     """Return list of music files on s3 bucket"""
 
-    s3 = boto3.resource("s3", aws_access_key_id=aws_id,
-                        aws_secret_access_key=aws_key)
+    s3 = boto3.resource("s3", aws_access_key_id=AWS_ID,
+                        aws_secret_access_key=AWS_KEY)
 
-    music_bucket = s3.Bucket(music_bucket_name)
+    music_bucket = s3.Bucket(MUSIC_BUCKET_NAME)
     data = []
     for file in music_bucket.objects.all():
         data.append(file.key)
     return data
 
 
-def download_from_bucket(obj_name, bucket_name=music_bucket_name):
+def download_from_bucket(obj_name, bucket_name=MUSIC_BUCKET_NAME):
     """Download a file from music bucket"""
 
-    s3 = boto3.client("s3", aws_access_key_id=aws_id,
-                      aws_secret_access_key=aws_key)
+    s3 = boto3.client("s3", aws_access_key_id=AWS_ID,
+                      aws_secret_access_key=AWS_KEY)
     s3.download_file(bucket_name, obj_name, f"/tmp/{obj_name}")
     logging.info(f"Saved to /tmp/{obj_name}")
 
@@ -81,11 +100,11 @@ def upload_files_to_bucket(file_list):
     return True
 
 
-def upload_to_bucket(file_path, bucket_name=music_bucket_name):
+def upload_to_bucket(file_path, bucket_name=MUSIC_BUCKET_NAME):
     """Upload a file to s3 bucket."""
 
-    s3 = boto3.resource("s3", aws_access_key_id=aws_id,
-                        aws_secret_access_key=aws_key)
+    s3 = boto3.resource("s3", aws_access_key_id=AWS_ID,
+                        aws_secret_access_key=AWS_KEY)
 
     obj_name = file_path.split('/')[-1].replace(' ', '_').replace("'", "")
     try:
@@ -146,7 +165,7 @@ def send_upload_photo_action(func):
 def get_dog_img():
     """Return a dog image"""
 
-    r = requests.get(url=dog_url)
+    r = requests.get(url=DOG_URL)
     response = json.loads(r.text)
     return response["message"]
 
@@ -155,8 +174,7 @@ def main_menu_keyboard():
     keyboard = [[InlineKeyboardButton("Music", callback_data="music_menu"),
                  InlineKeyboardButton("Corona Virus", callback_data="corona_menu"),
                  InlineKeyboardButton("Dog Image", callback_data="dog_image")],
-                [InlineKeyboardButton("Youtube Downloader", callback_data="youtube-dl")],
-                [InlineKeyboardButton("Main Menu", callback_data="main_menu")]]
+                [InlineKeyboardButton("Youtube Downloader", callback_data="youtube-dl")]]
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -170,8 +188,10 @@ def music_menu_keyboard():
 
 
 def youtube_menu_keyboard():
-    keyboard = [[InlineKeyboardButton("Download Video", callback_data='download_video'),
-                 InlineKeyboardButton("Download Audio", callback_data='download_audio')]]
+    keyboard = [[InlineKeyboardButton("Get video", callback_data='download_video'),
+                 InlineKeyboardButton("Get audio", callback_data='download_audio')],
+                [InlineKeyboardButton("Upload audio to S3 AWS", callback_data='youtube_audio_to_s3')],
+                [InlineKeyboardButton("Upload video to S3 AWS", callback_data='youtube_video_to_s3')]]
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -195,6 +215,7 @@ def music_list_keyboard(start=0, paginator=10):
         keyboard[-1].insert(0, InlineKeyboardButton("Back", callback_data="prev_page"))
 
     keyboard.append([InlineKeyboardButton("Music Menu", callback_data="music_menu")])
+    keyboard.append([InlineKeyboardButton("Main Menu", callback_data="main_menu")])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -204,39 +225,9 @@ def corona_menu_keyboard(country_list):
     for country in country_list:
         keyboard[0].append(InlineKeyboardButton(str(country), callback_data="corona_" + str(country)))
 
-    keyboard.append([InlineKeyboardButton("Back", callback_data="main_menu")])
+    keyboard.append([InlineKeyboardButton("Main Menu", callback_data="main_menu")])
 
     return InlineKeyboardMarkup(keyboard)
-
-
-@send_upload_audio_action
-def music(update, context):
-    """upload music file with specified index
-    to bot channel. """
-
-    music_list = list_s3_music()
-    index = int(context.args[0])
-    context.chat_data['index'] = index
-    context.chat_data['music_list'] = music_list
-    upload_music_to_bot(update, context)
-
-
-def list_all_files(update, context):
-    query = update.callback_query
-
-    music_list = list_s3_music()
-    response = ""
-
-    for index, file in enumerate(music_list):
-        response += f"{index}. {file.replace('_', ' ')}\n"
-        if index != 0 and index % 40 == 0:
-            context.bot.send_message(chat_id=update.effective_chat.id, text=response)
-            response = ""
-        elif index > 40 * (len(music_list) / 40):
-            pass
-
-    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
-    start_bot(update, context)
 
 
 def main_menu(update, context):
@@ -266,18 +257,22 @@ def corona_menu(update, context):
                                   reply_markup=corona_menu_keyboard(country_list))
 
 
-# Callback button handlers
-def callback_country_select(update, context):
+def list_all_files(update, context):
     query = update.callback_query
-    country = query.data.split("corona_")[-1]
 
-    c = bs4Virus.VirusUpdater()
-    country_list = context.chat_data["country_list"]
+    music_list = list_s3_music()
+    response = ""
 
-    context.bot.edit_message_text(text=c.get_by_country(country),
-                                  chat_id=query.message.chat_id,
-                                  message_id=query.message.message_id,
-                                  reply_markup=corona_menu_keyboard(country_list))
+    for index, file in enumerate(music_list):
+        response += f"{index}. {file.replace('_', ' ')}\n"
+        if index != 0 and index % 40 == 0:
+            context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+            response = ""
+        elif index > 40 * (len(music_list) / 40):
+            pass
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+    start_bot(update, context)
 
 
 def music_list(update, context):
@@ -329,54 +324,57 @@ def prev_music_page(update, context):
 def callback_file_select(update, context):
     query = update.callback_query
     music_list = context.chat_data["music_list"]
-
-    query.answer()
-    query.edit_message_text(text="Uploading file ...")
-
     data = query.data
     index = int(data.split("_")[-1])
 
-    context.chat_data["index"] = index
-    context.chat_data["music_list"] = music_list
-    upload_music_to_bot(update, context)
+    download_link = ''.join([REST_URI, music_list[index]])
+
+    query.answer()
+    query.edit_message_text(text=f"Download link: {download_link}")
+
+    # context.chat_data["index"] = index
+    # context.chat_data["music_list"] = music_list
+    # upload_music_to_bot(update, context)
 
 
 def download_audio(update, context):
+    """Get download audio link from youtube link"""
+
     query = update.callback_query
     url = context.chat_data['url']
-    logging.info(f"Downloading audio {url}")
-    filename = youtubedl.download_audio(url)
+    logging.info(f"Getting download link for {url}")
+    link = youtubedl.get_audio_url(url)
 
-    query.edit_message_text(f"Uploading audio {filename}")
-    context.bot.send_audio(chat_id=update.effective_chat.id,
-                           audio=open(f"/tmp/{filename}", 'rb'),
-                           timeout=1000)
+    query.edit_message_text(f"Audio download link: {link}")
 
 
 @send_upload_audio_action
 def download_video(update, context):
-    # query = update.callback_query
-    # url = context.chat_data['url']
-    # logging.info(f"Downloading video {url}")
-    # filename = youtubedl.download_video(url)
-    # logging.info(f"File saved to /tmp/{filename}")
+    """Get download video link from youtube link"""
 
-    # query.edit_message_text(f"Uploading video {filename}")
-    # context.bot.send_video(chat_id=update.effective_chat.id,
-    #                        video=open(f"/tmp/{filename}", 'rb'),
-    #                        timeout=200000)
-    pass
+    query = update.callback_query
+    url = context.chat_data['url']
+    logging.info(f"Getting download link for {url}")
+    link = youtubedl.get_video_url(url)
+
+    query.edit_message_text(f"Video download link: {link}")
 
 
-@send_upload_audio_action
-def upload_music_to_bot(update, context):
-    files = context.chat_data["music_list"]
-    index = int(context.chat_data["index"])
-    download_from_bucket(files[index])
 
-    context.bot.send_audio(chat_id=update.effective_chat.id,
-                           audio=open(f'/tmp/{files[index]}', 'rb'),
-                           timeout=1000)
+# Corona virus data
+def callback_country_select(update, context):
+    """Send corona virus data of selected country"""
+
+    query = update.callback_query
+    country = query.data.split("corona_")[-1]
+
+    c = bs4Virus.VirusUpdater()
+    country_list = context.chat_data["country_list"]
+
+    context.bot.edit_message_text(text=c.get_by_country(country),
+                                  chat_id=query.message.chat_id,
+                                  message_id=query.message.message_id,
+                                  reply_markup=corona_menu_keyboard(country_list))
 
 
 def start_bot(update, context):
@@ -409,6 +407,8 @@ def inline_caps(update, context):
 
 @send_upload_photo_action
 def dog(update, context):
+    """Send a random dog image"""
+
     query = update.callback_query
     dog_img = get_dog_img()
 
@@ -420,6 +420,8 @@ def dog(update, context):
 
 
 def youtube_link_handle(update, context):
+    """Filter youtube link"""
+
     url = update.message.text
 
     context.chat_data['url'] = url
@@ -453,10 +455,15 @@ def set_timer(update, context):
     context.job_queue.run_once(callback_alarm, user_timer, context=update.message.chat_id)
 
 
-def main(proxy=None):
+def main(use_proxy=True):
     logging.info("Running main func.")
-    request_kwargs = {'proxy_url': proxy}
-    updater = Updater(token=bot_token, use_context=True, request_kwargs=request_kwargs)
+    if use_proxy:
+        request_kwargs = {'proxy_url': proxy}
+        logging.info("Using proxy: {}".format(proxy))
+    else:
+        request_kwargs = {}
+        logging.info("Not using proxy")
+    updater = Updater(token=BOT_TOKEN, use_context=True, request_kwargs=request_kwargs)
     dispatcher = updater.dispatcher
     j_queue = updater.job_queue
 
@@ -464,7 +471,7 @@ def main(proxy=None):
     inline_caps_handler = InlineQueryHandler(inline_caps)
     dog_handler = CallbackQueryHandler(dog, pattern="dog_image")
     help_handler = CommandHandler('help', help_bot)
-    music_handler = CommandHandler('music', music)
+    music_handler = CommandHandler('music', music_list)
     main_menu_handler = CallbackQueryHandler(main_menu, pattern='main_menu')
     music_menu_handler = CallbackQueryHandler(music_menu, pattern='music_menu')
     corona_handler = CallbackQueryHandler(corona_menu, pattern="corona_menu")
@@ -500,23 +507,20 @@ def main(proxy=None):
     j_minute = j_queue.run_repeating(callback_welcome, interval=30, first=0)
     j_minute.enabled = False
 
-    updater.start_polling()
-    updater.idle()
+    logging.info(f"Running bot in {mode} mode.")
+    run(updater)
 
 
 if __name__ == '__main__':
     #  files = os.listdir('/home/viet/Music')
-    #  file_list = list(map(lambda x: os.path.join(music_dir, x), files))
-    #  upload_files_to_bucket(file_list[120:140])
 
     logging.info("Getting proxy list.")
     proxies = get_proxies()
     proxy_pool = cycle(proxies)
 
-    while True:
+    while 1:
         try:
             proxy = next(proxy_pool)
-            logging.info("Using proxy: {}".format(proxy))
-            main(proxy=None)
+            main(use_proxy=False)
         except NetworkError:
             continue
