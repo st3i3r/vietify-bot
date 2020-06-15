@@ -310,10 +310,9 @@ def music_list(update, context):
     context.chat_data["total_page"] = len(music_list) // context.chat_data["paginator"] + 1
 
     context.bot.edit_message_text(text=f"Page: {context.chat_data['current_page']}/{context.chat_data['total_page']}",
-                                  chat_id=query.message.chat_id,
+                                  chat_id=update.effective_chat.id,
                                   message_id=query.message.message_id,
                                   reply_markup=music_list_keyboard())
-
 
 def next_music_page(update, context):
     query = update.callback_query
@@ -401,11 +400,16 @@ def callback_country_select(update, context):
 
 def start_bot(update, context):
     if mode == 'dev':
-        update.message.reply_text(text="Running in dev mode")
+        context.bot.send_message(text="Running in dev mode",
+                                 chat_id=update.effective_chat.id)
     else:
-        update.message.reply_text(text="Running in production mode")
+        context.bot.send_message(text="Running in production mode",
+                                 chat_id=update.effective_chat.id)
+
     response = f"Hi, {update.effective_chat.username}. Are you a 0 or a 1 ?"
-    update.message.reply_text(text=response, reply_markup=main_menu_keyboard())
+    context.bot.send_message(text=response,
+                             chat_id=update.effective_chat.id,
+                             reply_markup=main_menu_keyboard())
 
 
 def echo_back(update, context):
