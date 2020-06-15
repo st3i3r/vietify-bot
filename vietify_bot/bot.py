@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
 from telegram import InlineQueryResultArticle, InputTextMessageContent, ReplyKeyboardMarkup, InlineKeyboardButton, \
     InlineKeyboardMarkup
