@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-
+from telegram import ChatAction
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
 from telegram import InlineQueryResultArticle, InputTextMessageContent, ReplyKeyboardMarkup, InlineKeyboardButton, \
     InlineKeyboardMarkup
 from telegram.error import NetworkError
-from telegram import ChatAction
 from functools import wraps
 from botocore.exceptions import ClientError
 import os
@@ -23,9 +21,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 
 config = configparser.ConfigParser()
-config.read("../config.ini")
-
-
+config.read("config.ini")
 
 mode = os.getenv("MODE")
 
@@ -38,27 +34,32 @@ if mode == "dev":
     REST_URI = config["aws"]["rest_uri"]
 
     def run(updater):
+        logging.info(f"Running bot in dev mode.")
         updater.start_polling()
         updater.idle()
+
 elif mode == "prod":
     AWS_ID = os.environ.get("AWS_ID")
     AWS_KEY = os.environ.get("AWS_KEY")
-    BOT_TOKEN = os.environ.get("TOKEN")
+    BOT_TOKEN = os.environ.get("BOT_TOKEN")
     DOG_URL = os.environ.get("DOG_URL")
     MUSIC_BUCKET_NAME = os.environ.get("MUSIC_BUCKET_NAME")
     REST_URI = os.environ.get("REST_URI")
 
     def run(updater):
+        logging.info(f"Running bot in prod mode.")
         PORT = os.environ.get("PORT", 8443)
         HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
 
         updater.start_webhook(listen='0.0.0.0',
                               port=PORT,
                               url_path=BOT_TOKEN)
-        updater.bot.set_webhook(f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}")
+        updater.bot.setWebhook(f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}")
+
 else:
     logging.error("No mode specified.")
     sys.exit(1)
+
 
 # Get proxies from free-proxy-list.net
 def get_proxies():
@@ -185,7 +186,7 @@ def main_menu_keyboard():
     keyboard = [[InlineKeyboardButton("Music", callback_data="music_menu"),
                  InlineKeyboardButton("Corona Virus", callback_data="corona_menu"),
                  InlineKeyboardButton("Dog Image", callback_data="dog_image")],
-                [InlineKeyboardButton("Youtube Downloader", callback_data="youtube-dl")]]
+                [InlineKeyboardButton("Youtube Downloader", callback_data="youtube-dl-help")]]
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -261,7 +262,19 @@ def corona_menu(update, context):
     query = update.callback_query
     country_list = ["Vietnam", "Russia", "USA", "World", "Europe"]
 
-    context.chat_data["country_list"] = country_list
+    query.edit_message_text("Fetching data ...")
+
+    c = bs4Virus.VirusUpdater()
+    logging.info("Fetching coronavirus data ...")
+
+    corona_data = {}
+    for _country in country_list:
+        if _country not in corona_data:
+            corona_data[_country] = c.get_by_country(_country)
+
+    context.chat_data['corona_data'] = corona_data
+    context.chat_data['country_list'] = country_list
+
     context.bot.edit_message_text(text="Get corona virus data.",
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
@@ -371,18 +384,16 @@ def download_video(update, context):
     query.edit_message_text(f"Video download link: {link}")
 
 
-
 # Corona virus data
 def callback_country_select(update, context):
     """Send corona virus data of selected country"""
 
     query = update.callback_query
-    country = query.data.split("corona_")[-1]
+    country = query.data.split('corona_')[-1]
+    corona_data = context.chat_data['corona_data']
+    country_list = context.chat_data['country_list']
 
-    c = bs4Virus.VirusUpdater()
-    country_list = context.chat_data["country_list"]
-
-    context.bot.edit_message_text(text=c.get_by_country(country),
+    context.bot.edit_message_text(text=corona_data[country],
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
                                   reply_markup=corona_menu_keyboard(country_list))
@@ -434,6 +445,13 @@ def dog(update, context):
                              reply_markup=main_menu_keyboard())
 
 
+def youtube_download_help(update, context):
+    """Help function"""
+
+    response = "Send a youtube link to get a downloadable link."
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                             text=response)
+
 def youtube_link_handle(update, context):
     """Filter youtube link"""
 
@@ -470,7 +488,7 @@ def set_timer(update, context):
     context.job_queue.run_once(callback_alarm, user_timer, context=update.message.chat_id)
 
 
-def main(use_proxy=True):
+def main(*, use_proxy=True):
     logging.info("Running main func.")
     if use_proxy:
         request_kwargs = {'proxy_url': proxy}
@@ -514,6 +532,7 @@ def main(use_proxy=True):
     dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be|youtube.com'), youtube_link_handle))
     dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download_audio'))
     dispatcher.add_handler(CallbackQueryHandler(download_video, pattern='download_video'))
+    dispatcher.add_handler(CallbackQueryHandler(youtube_download_help, pattern='youtube-dl-help'))
 
     dispatcher.add_handler(set_timer_handler)
     dispatcher.add_handler(unknown_handler)
@@ -522,7 +541,6 @@ def main(use_proxy=True):
     j_minute = j_queue.run_repeating(callback_welcome, interval=30, first=0)
     j_minute.enabled = False
 
-    logging.info(f"Running bot in {mode} mode.")
     run(updater)
 
 
