@@ -569,7 +569,8 @@ if __name__ == '__main__':
     proxies = get_proxies()
     proxy_pool = cycle(proxies)
 
-    while 1:
+    main(use_proxy=USE_PROXY)
+    while 0:
         try:
             proxy = next(proxy_pool)
             main(use_proxy=USE_PROXY)
