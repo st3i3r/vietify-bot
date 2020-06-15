@@ -563,16 +563,16 @@ def main(*, use_proxy=True):
 
 
 if __name__ == '__main__':
-    #  files = os.listdir('/home/viet/Music')
+    if mode == "prod":
+        main(use_proxy=USE_PROXY)
+    else:
+        logging.info("Getting proxy list.")
+        proxies = get_proxies()
+        proxy_pool = cycle(proxies)
 
-    logging.info("Getting proxy list.")
-    proxies = get_proxies()
-    proxy_pool = cycle(proxies)
-
-    main(use_proxy=USE_PROXY)
-    while 0:
-        try:
-            proxy = next(proxy_pool)
-            main(use_proxy=USE_PROXY)
-        except NetworkError:
-            continue
+        while 1:
+            try:
+                proxy = next(proxy_pool)
+                main(use_proxy=USE_PROXY)
+            except NetworkError:
+                continue
