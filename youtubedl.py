@@ -12,7 +12,6 @@ ytdl_audio_opts = {
     'outtmpl': '%(title)s.%(ext)s',
     'quiet': True
 }
-opts = {}
 
 ytdl_video_opts = {
     'format': 'best',

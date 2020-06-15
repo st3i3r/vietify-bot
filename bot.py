@@ -1,4 +1,4 @@
-from telegram import ChatAction
+from telegram.chataction import ChatAction
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
 from telegram import InlineQueryResultArticle, InputTextMessageContent, ReplyKeyboardMarkup, InlineKeyboardButton, \
     InlineKeyboardMarkup
@@ -32,6 +32,8 @@ if mode == "dev":
     DOG_URL = config["dog"]["DOG_URL"]
     MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
     REST_URI = config["aws"]["rest_uri"]
+    USE_PROXY = False
+
 
     def run(updater):
         logging.info(f"Running bot in dev mode.")
@@ -45,6 +47,8 @@ elif mode == "prod":
     DOG_URL = os.environ.get("DOG_URL")
     MUSIC_BUCKET_NAME = os.environ.get("MUSIC_BUCKET_NAME")
     REST_URI = os.environ.get("REST_URI")
+    USE_PROXY = os.environ.get("USER_PROXY")
+
 
     def run(updater):
         logging.info(f"Running bot in prod mode.")
@@ -287,16 +291,22 @@ def list_all_files(update, context):
     music_list = list_s3_music()
     response = ""
 
-    for index, file in enumerate(music_list):
-        response += f"{index}. {file.replace('_', ' ')}\n"
-        if index != 0 and index % 40 == 0:
-            context.bot.send_message(chat_id=update.effective_chat.id, text=response)
-            response = ""
-        elif index > 40 * (len(music_list) / 40):
-            pass
+    if context.args:
+        index = int(context.args[0])
+        response = f"Download link for {music_list[index]}: "
+        response += ''.join([REST_URI, music_list[index]])
+
+    else:
+        for index, file in enumerate(music_list):
+            response += f"{index}. {file.replace('_', ' ')}\n"
+            if index != 0 and index % 40 == 0:
+                context.bot.send_message(chat_id=update.effective_chat.id, text=response)
+                response = ""
+            elif index > 40 * (len(music_list) / 40):
+                pass
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=response)
-    start_bot(update, context)
+    #start_bot(update, context)
 
 
 def music_list(update, context):
@@ -309,10 +319,13 @@ def music_list(update, context):
     context.chat_data["music_list"] = music_list
     context.chat_data["total_page"] = len(music_list) // context.chat_data["paginator"] + 1
 
-    context.bot.edit_message_text(text=f"Page: {context.chat_data['current_page']}/{context.chat_data['total_page']}",
-                                  chat_id=update.effective_chat.id,
-                                  message_id=query.message.message_id,
-                                  reply_markup=music_list_keyboard())
+
+    context.bot.edit_message_text(
+        text=f"Page: {context.chat_data['current_page']}/{context.chat_data['total_page']}",
+        chat_id=update.effective_chat.id,
+        message_id=query.message.message_id,
+        reply_markup=music_list_keyboard())
+
 
 def next_music_page(update, context):
     query = update.callback_query
@@ -456,6 +469,7 @@ def youtube_download_help(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id,
                              text=response)
 
+
 def youtube_link_handle(update, context):
     """Filter youtube link"""
 
@@ -508,7 +522,7 @@ def main(*, use_proxy=True):
     inline_caps_handler = InlineQueryHandler(inline_caps)
     dog_handler = CallbackQueryHandler(dog, pattern="dog_image")
     help_handler = CommandHandler('help', help_bot)
-    music_handler = CommandHandler('music', music_list)
+    music_handler = CommandHandler('music', list_all_files)
     main_menu_handler = CallbackQueryHandler(main_menu, pattern='main_menu')
     music_menu_handler = CallbackQueryHandler(music_menu, pattern='music_menu')
     corona_handler = CallbackQueryHandler(corona_menu, pattern="corona_menu")
@@ -558,6 +572,6 @@ if __name__ == '__main__':
     while 1:
         try:
             proxy = next(proxy_pool)
-            main(use_proxy=False)
+            main(use_proxy=USE_PROXY)
         except NetworkError:
             continue
