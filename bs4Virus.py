@@ -23,13 +23,8 @@ def check_last_update(func):
 
     wrapper.cache_data = dict()
     wrapper.last_update = datetime.datetime.now()
-    wrapper.over_datetime = datetime.datetime(wrapper.last_update.year,
-                                              wrapper.last_update.month,
-                                              wrapper.last_update.day,
-                                              wrapper.last_update.hour + 5,
-                                              wrapper.last_update.minute,
-                                              wrapper.last_update.second,
-                                              wrapper.last_update.microsecond)
+    wrapper.over_datetime = wrapper.last_update + datetime.timedelta(hours=3)
+
     return wrapper
 
 
