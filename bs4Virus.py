@@ -46,7 +46,6 @@ class VirusUpdater:
     def data(self):
         return self.fetch_data()
 
-    @check_last_update
     def fetch_data(self):
         response = requests.get(url=self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -91,6 +90,7 @@ class VirusUpdater:
         try:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
+            data += f"Last updated: {last_update}"
         except IndexError:
             data = "Country not found."
 
@@ -102,11 +102,3 @@ class VirusUpdater:
 
 if __name__ == '__main__':
     a = VirusUpdater()
-    print(a.get_by_country("vietnam"))
-    time.sleep(5)
-    print(a.get_by_country("vietnam"))
-    time.sleep(20)
-    print(a.get_by_country("russia"))
-    print(a.get_by_country("russia"))
-    print(a.get_by_country("russia"))
-    print(a.get_by_country("russia"))
