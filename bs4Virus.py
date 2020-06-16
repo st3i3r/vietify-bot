@@ -9,16 +9,17 @@ from lxml.html import fromstring
 def check_last_update(func):
     def wrapper(*args):
         current_time = datetime.datetime.now()
-        if current_time > wrapper.over_datetime or args not in wrapper.cache_data:
+        if current_time > wrapper.over_datetime or not wrapper.cache_data:
+            print(wrapper.cache_data.keys())
             print("Fetching new data from web.")
             data = func(*args)
-            wrapper.cache_data[args] = data
+            wrapper.cache_data['latest-data'] = data
             wrapper.last_update = current_time
             wrapper.over_datetime = wrapper.last_update + datetime.timedelta(hours=3)
             return data
         else:
             print("Using cache data.")
-            return wrapper.cache_data[args]
+            return wrapper.cache_data['latest-data']
 
     wrapper.cache_data = dict()
     wrapper.last_update = datetime.datetime.now()
@@ -46,6 +47,7 @@ class VirusUpdater:
     def data(self):
         return self.fetch_data()
 
+    @check_last_update
     def fetch_data(self):
         response = requests.get(url=self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -90,7 +92,7 @@ class VirusUpdater:
         try:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
-            data += f"Last updated: {last_update}"
+            #data += f"Last updated: {last_update}"
         except IndexError:
             data = "Country not found."
 
