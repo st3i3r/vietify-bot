@@ -10,12 +10,12 @@ import sys
 import logging
 import requests
 import json
-import bs4Virus
+from CoronaVirusUpdater import bs4Virus
 import boto3
 import configparser
 from lxml.html import fromstring
 from itertools import cycle
-import youtubedl
+from YoutubeDownloader import youtubedl
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -32,7 +32,7 @@ if mode == "dev":
     DOG_URL = config["dog"]["DOG_URL"]
     MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
     REST_URI = config["aws"]["rest_uri"]
-    USE_PROXY = False
+    USE_PROXY = True
 
 
     def run(updater):
