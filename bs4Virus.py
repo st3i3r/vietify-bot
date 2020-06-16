@@ -1,16 +1,15 @@
 from bs4 import BeautifulSoup
 import datetime
-import time
 import requests
 import pandas
-from lxml.html import fromstring
+from functools import wraps
 
 
 def check_last_update(func):
+    @wraps(func)
     def wrapper(*args):
         current_time = datetime.datetime.now()
         if current_time > wrapper.over_datetime or not wrapper.cache_data:
-            print(wrapper.cache_data.keys())
             print("Fetching new data from web.")
             data = func(*args)
             wrapper.cache_data['latest-data'] = data
@@ -26,8 +25,8 @@ def check_last_update(func):
     wrapper.over_datetime = datetime.datetime(wrapper.last_update.year,
                                               wrapper.last_update.month,
                                               wrapper.last_update.day,
-                                              wrapper.last_update.hour,
-                                              wrapper.last_update.minute + 1,
+                                              wrapper.last_update.hour + 5,
+                                              wrapper.last_update.minute,
                                               wrapper.last_update.second,
                                               wrapper.last_update.microsecond)
     return wrapper
@@ -92,7 +91,7 @@ class VirusUpdater:
         try:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
-            #data += f"Last updated: {last_update}"
+            data += f"\nLast updated: {self.fetch_data.last_update.strftime('%d %b %H:%M')}"
         except IndexError:
             data = "Country not found."
 
@@ -104,3 +103,4 @@ class VirusUpdater:
 
 if __name__ == '__main__':
     a = VirusUpdater()
+    print(a.get_by_country("Vietnam"))
