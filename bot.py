@@ -242,6 +242,7 @@ def corona_menu_keyboard(country_list):
     for country in country_list:
         keyboard[0].append(InlineKeyboardButton(str(country), callback_data="corona_" + str(country)))
 
+    keyboard.append([InlineKeyboardButton("Manually update database", callback_data="update_corona_data")])
     keyboard.append([InlineKeyboardButton("Main Menu", callback_data="main_menu")])
 
     return InlineKeyboardMarkup(keyboard)
@@ -412,6 +413,25 @@ def callback_country_select(update, context):
                                   reply_markup=corona_menu_keyboard(country_list))
 
 
+def update_corona_data(update, context):
+    """Manually update corona virus data"""
+
+    query = update.callback_query
+    a = bs4Virus.VirusUpdater()
+    country_list = context.chat_data['country_list']
+
+    context.bot.edit_message_text(text="Updating database ...",
+                                  chat_id=query.message.chat_id,
+                                  message_id=query.message.message_id,
+                                  reply_markup=corona_menu_keyboard(country_list))
+
+    a.fetch_data(use_cache=False)
+    context.bot.edit_message_text(text="Database updated successfully.",
+                                  chat_id=query.message.chat_id,
+                                  message_id=query.message.message_id,
+                                  reply_markup=corona_menu_keyboard(country_list))
+
+
 def start_bot(update, context):
     if mode == 'dev':
         context.bot.send_message(text="Running in dev mode",
@@ -547,6 +567,7 @@ def main(*, use_proxy=True):
 
     dispatcher.add_handler(corona_handler)
     dispatcher.add_handler(CallbackQueryHandler(callback_country_select, pattern="^corona_[a-zA-Z]+$"))
+    dispatcher.add_handler(CallbackQueryHandler(update_corona_data, pattern="update_corona_data"))
 
     dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be|youtube.com'), youtube_link_handle))
     dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download_audio'))

@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import datetime
+import time
 import requests
 import pandas
 from functools import wraps
@@ -7,17 +8,17 @@ from functools import wraps
 
 def check_last_update(func):
     @wraps(func)
-    def wrapper(*args):
+    def wrapper(*args, use_cache):
         current_time = datetime.datetime.now()
-        if current_time > wrapper.over_datetime or not wrapper.cache_data:
-            print("Fetching new data from web.")
-            data = func(*args)
+        if not use_cache or current_time > wrapper.over_datetime or not wrapper.cache_data:
+            data = func(*args, use_cache)
             wrapper.cache_data['latest-data'] = data
+
             wrapper.last_update = current_time
             wrapper.over_datetime = wrapper.last_update + datetime.timedelta(hours=3)
+
             return data
         else:
-            print("Using cache data.")
             return wrapper.cache_data['latest-data']
 
     wrapper.cache_data = dict()
@@ -41,13 +42,17 @@ class VirusUpdater:
 
     def __init__(self):
         self.url = 'https://www.worldometers.info/coronavirus/#countries/'
+        self.use_cache = True
 
     @property
     def data(self):
-        return self.fetch_data()
+        if self.use_cache:
+            return self.fetch_data(use_cache=True)
+        else:
+            return self.fetch_data(use_cache=False)
 
     @check_last_update
-    def fetch_data(self):
+    def fetch_data(self, use_cache):
         response = requests.get(url=self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -88,10 +93,16 @@ class VirusUpdater:
         return data
 
     def get_by_country(self, country, *, use_cache=True):
+        self.use_cache = use_cache
+        if self.use_cache:
+            print("Prefer using cache.")
+        else:
+            print("Not using cache.")
+
         try:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
-            data += f"\nLast updated: {self.fetch_data.last_update.strftime('%d %b %H:%M')}"
+            data += f"\nLast updated: {self.fetch_data.last_update.strftime('%d %b %H:%M %Z')}"
         except IndexError:
             data = "Country not found."
 
@@ -103,4 +114,6 @@ class VirusUpdater:
 
 if __name__ == '__main__':
     a = VirusUpdater()
-    print(a.get_by_country("Vietnam"))
+    print(a.get_by_country("Vietnam", use_cache=True))
+    time.sleep(10)
+    print(a.get_by_country("Vietnam", use_cache=False))
