@@ -1,7 +1,40 @@
 from bs4 import BeautifulSoup
+import datetime
+import time
 import requests
 import pandas
 from lxml.html import fromstring
+
+
+def check_last_update(func):
+    def wrapper(*args):
+        current_time = datetime.datetime.now()
+        if current_time > wrapper.over_datetime or args not in wrapper.cache_data:
+            print("Fetching new data from web.")
+            data = func(*args)
+            wrapper.cache_data[args] = data
+            wrapper.last_update = current_time
+            wrapper.over_datetime = wrapper.last_update + datetime.timedelta(hours=3)
+            return data
+        else:
+            print("Using cache data.")
+            return wrapper.cache_data[args]
+
+    wrapper.cache_data = dict()
+    wrapper.last_update = datetime.datetime.now()
+    wrapper.over_datetime = datetime.datetime(wrapper.last_update.year,
+                                              wrapper.last_update.month,
+                                              wrapper.last_update.day,
+                                              wrapper.last_update.hour,
+                                              wrapper.last_update.minute + 1,
+                                              wrapper.last_update.second,
+                                              wrapper.last_update.microsecond)
+    return wrapper
+
+
+@check_last_update
+def test(mes):
+    print(mes)
 
 
 class VirusUpdater:
@@ -11,6 +44,10 @@ class VirusUpdater:
 
     @property
     def data(self):
+        return self.fetch_data()
+
+    @check_last_update
+    def fetch_data(self):
         response = requests.get(url=self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -50,7 +87,7 @@ class VirusUpdater:
 
         return data
 
-    def get_by_country(self, country):
+    def get_by_country(self, country, *, use_cache=True):
         try:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
@@ -65,4 +102,11 @@ class VirusUpdater:
 
 if __name__ == '__main__':
     a = VirusUpdater()
-    a.test()
+    print(a.get_by_country("vietnam"))
+    time.sleep(5)
+    print(a.get_by_country("vietnam"))
+    time.sleep(20)
+    print(a.get_by_country("russia"))
+    print(a.get_by_country("russia"))
+    print(a.get_by_country("russia"))
+    print(a.get_by_country("russia"))
