@@ -9,7 +9,7 @@ from functools import wraps
 def check_last_update(func):
     @wraps(func)
     def wrapper(*args, use_cache):
-        current_time = datetime.datetime.utcnow() + datetime.timedelta(hours=4)
+        current_time = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
         if not use_cache or current_time > wrapper.over_datetime or not wrapper.cache_data:
             data = func(*args, use_cache)
             wrapper.cache_data['latest-data'] = data
@@ -22,7 +22,7 @@ def check_last_update(func):
             return wrapper.cache_data['latest-data']
 
     wrapper.cache_data = dict()
-    wrapper.last_update = datetime.datetime.utcnow() + datetime.timedelta(hours=4)
+    wrapper.last_update = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
     wrapper.over_datetime = wrapper.last_update + datetime.timedelta(hours=5)
 
     return wrapper
