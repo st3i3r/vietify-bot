@@ -34,7 +34,6 @@ def get_video_url(url):
 
 
 if __name__ == "__main__":
-    url = "https://www.youtube.com/watch?v=PKMyyJ8jQak"
     with youtube_dl.YoutubeDL(ytdl_audio_opts) as ytdl:
         info = ytdl.extract_info(url, download=False)
     for key, value in info.items():
