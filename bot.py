@@ -364,7 +364,7 @@ def callback_file_select(update, context):
     data = query.data
     index = int(data.split("_")[-1])
 
-    download_link = ''.join([REST_URI, music_list[index]])
+    download_link = ''.join([REST_URI, music_list[index]]).replace(' ', '%20')
 
     query.answer()
     query.edit_message_text(text=f"Download link: {download_link}")
