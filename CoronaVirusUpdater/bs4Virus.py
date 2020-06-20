@@ -81,7 +81,7 @@ class VirusUpdater:
         data.replace('', '-', inplace=True)
 
         self.data = data
-        self.last_updated = datetime.datetime.utcnow() + datetime.timedelta(TIME_ZONE['Moscow'])
+        self.last_updated = datetime.datetime.utcnow() + datetime.timedelta(hours=TIME_ZONE['Moscow'])
 
     def get_by_country(self, country):
         try:
