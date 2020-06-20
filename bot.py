@@ -399,10 +399,9 @@ def callback_country_select(update, context):
 
     query = update.callback_query
     country = query.data.split('corona_')[-1]
-    corona_data = context.chat_data['corona_data']
     country_list = context.chat_data['country_list']
 
-    context.bot.edit_message_text(text=corona_data[country],
+    context.bot.edit_message_text(text=corona_updater.get_by_country(country),
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
                                   reply_markup=corona_menu_keyboard(country_list))
