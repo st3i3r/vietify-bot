@@ -1,7 +1,6 @@
-from telegram.chataction import ChatAction
+from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
-from telegram import InlineQueryResultArticle, InputTextMessageContent, ReplyKeyboardMarkup, InlineKeyboardButton, \
-    InlineKeyboardMarkup
+from telegram.chataction import ChatAction
 from telegram.error import NetworkError
 from functools import wraps
 from botocore.exceptions import ClientError
