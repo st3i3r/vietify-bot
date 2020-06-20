@@ -4,9 +4,12 @@ import time
 import requests
 import pandas
 from functools import wraps
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 TIME_ZONE = {'Vietnam': 8,
              'Moscow': 3}
+
+sched = BlockingScheduler()
 
 
 def check_last_update(func):
@@ -31,26 +34,15 @@ def check_last_update(func):
     return wrapper
 
 
-@check_last_update
-def test(mes):
-    print(mes)
-
-
 class VirusUpdater:
 
     def __init__(self):
         self.url = 'https://www.worldometers.info/coronavirus/#countries/'
         self.use_cache = True
+        self.data = None
+        self.last_updated = None
 
-    @property
-    def data(self):
-        if self.use_cache:
-            return self.fetch_data(use_cache=True)
-        else:
-            return self.fetch_data(use_cache=False)
-
-    @check_last_update
-    def fetch_data(self, use_cache):
+    def update_database(self):
         response = requests.get(url=self.url)
         soup = BeautifulSoup(response.content, 'html.parser')
 
@@ -88,19 +80,17 @@ class VirusUpdater:
 
         data.replace('', '-', inplace=True)
 
-        return data
+        self.data = data
+        self.last_updated = datetime.datetime.utcnow() + datetime.timedelta(TIME_ZONE['Moscow'])
 
-    def get_by_country(self, country, *, use_cache=True):
-        self.use_cache = use_cache
-        if self.use_cache:
-            print("Prefer using cache.")
-        else:
-            print("Not using cache.")
-
+    def get_by_country(self, country):
         try:
+            if self.data is None:
+                self.update_database()
+
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
-            data += f"\nLast updated: {self.fetch_data.last_update.strftime('%d %b %H:%M %Z')}"
+            data += f"\nLast updated: {self.last_updated.strftime('%d %b %H:%M %Z')}"
         except IndexError:
             data = "Country not found."
 

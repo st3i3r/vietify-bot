@@ -32,13 +32,13 @@ if mode == "dev":
     DOG_URL = config["dog"]["DOG_URL"]
     MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
     REST_URI = config["aws"]["rest_uri"]
-    USE_PROXY = True
+    USE_PROXY = False
 
 
     def run(updater):
         logging.info(f"Running bot in dev mode.")
         updater.start_polling()
-        updater.idle()
+        #updater.idle()
 
 elif mode == "prod":
     AWS_ID = os.environ.get("AWS_ID")
@@ -269,13 +269,10 @@ def corona_menu(update, context):
 
     query.edit_message_text("Fetching data ...")
 
-    c = bs4Virus.VirusUpdater()
-    logging.info("Fetching coronavirus data ...")
-
     corona_data = {}
     for _country in country_list:
         if _country not in corona_data:
-            corona_data[_country] = c.get_by_country(_country)
+            corona_data[_country] = corona_updater.get_by_country(_country)
 
     context.chat_data['corona_data'] = corona_data
     context.chat_data['country_list'] = country_list
@@ -415,7 +412,6 @@ def update_corona_data(update, context):
     """Manually update corona virus data"""
 
     query = update.callback_query
-    a = bs4Virus.VirusUpdater()
     country_list = context.chat_data['country_list']
 
     context.bot.edit_message_text(text="Updating database ...",
@@ -423,7 +419,6 @@ def update_corona_data(update, context):
                                   message_id=query.message.message_id,
                                   reply_markup=corona_menu_keyboard(country_list))
 
-    a.fetch_data(use_cache=False)
     context.bot.edit_message_text(text="Database updated successfully.",
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
@@ -583,6 +578,9 @@ def main(*, use_proxy=True):
 
 
 if __name__ == '__main__':
+
+    corona_updater = bs4Virus.VirusUpdater()
+
     if mode == "prod":
         main(use_proxy=USE_PROXY)
         sched = BlockingScheduler()
@@ -592,6 +590,10 @@ if __name__ == '__main__':
             HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
             BOT_TOKEN = os.environ.get("BOT_TOKEN")
             r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
+
+        @sched.scheduled_job('cron', year='*', month='*', day='*', hour=17, minute=11)
+        def update_database():
+            corona_updater.update_database()
 
         sched.start()
 
@@ -604,5 +606,13 @@ if __name__ == '__main__':
             try:
                 proxy = next(proxy_pool)
                 main(use_proxy=USE_PROXY)
+                sched = BlockingScheduler()
+
+                @sched.scheduled_job('interval', seconds=60)
+                def update_database():
+                    corona_updater.update_database()
+
+                sched.start()
+
             except NetworkError:
                 continue
