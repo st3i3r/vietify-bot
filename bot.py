@@ -15,7 +15,7 @@ import configparser
 from lxml.html import fromstring
 from itertools import cycle
 from YoutubeDownloader import youtubedl
-#from apscheduler.schedulers.blocking import BlockingScheduler
+ from apscheduler.schedulers.blocking import BlockingScheduler
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -307,7 +307,7 @@ def list_all_files(update, context):
                 pass
 
     context.bot.send_message(chat_id=update.effective_chat.id, text=response)
-    #start_bot(update, context)
+    # start_bot(update, context)
 
 
 def music_list(update, context):
@@ -319,7 +319,6 @@ def music_list(update, context):
     context.chat_data["paginator"] = 8
     context.chat_data["music_list"] = music_list
     context.chat_data["total_page"] = len(music_list) // context.chat_data["paginator"] + 1
-
 
     context.bot.edit_message_text(
         text=f"Page: {context.chat_data['current_page']}/{context.chat_data['total_page']}",
@@ -586,19 +585,19 @@ def main(*, use_proxy=True):
 if __name__ == '__main__':
     if mode == "prod":
         main(use_proxy=USE_PROXY)
-       # sched = BlockingScheduler()
+        sched = BlockingScheduler()
 
-       # @sched.scheduled_job('interval', minutes=1)
-       # def ping_bot():
-       #     if mode == 'prod':
-       #         HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
-       #         BOT_TOKEN = os.environ.get("BOT_TOKEN")
-       #         r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
-       #         logging("{Scheduler} - ping to prevent bot from idling")
-       #     else:
-       #         pass
+        @sched.scheduled_job('interval', minutes=1)
+        def ping_bot():
+            if mode == 'prod':
+                HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
+                BOT_TOKEN = os.environ.get("BOT_TOKEN")
+                r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
+                logging.info("{Scheduler} - ping to prevent bot from idling")
+            else:
+                pass
 
-       # sched.start()
+        sched.start()
 
     else:
         logging.info("Getting proxy list.")
