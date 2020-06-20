@@ -15,7 +15,7 @@ import configparser
 from lxml.html import fromstring
 from itertools import cycle
 from YoutubeDownloader import youtubedl
- from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
