@@ -587,15 +587,11 @@ if __name__ == '__main__':
         main(use_proxy=USE_PROXY)
         sched = BlockingScheduler()
 
-        @sched.scheduled_job('interval', minutes=1)
+        @sched.scheduled_job('interval', hours=1)
         def ping_bot():
-            if mode == 'prod':
-                HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
-                BOT_TOKEN = os.environ.get("BOT_TOKEN")
-                r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
-                logging.info("{Scheduler} - ping to prevent bot from idling")
-            else:
-                pass
+            HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
+            BOT_TOKEN = os.environ.get("BOT_TOKEN")
+            r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
 
         sched.start()
 
