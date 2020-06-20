@@ -414,10 +414,13 @@ def update_corona_data(update, context):
     query = update.callback_query
     country_list = context.chat_data['country_list']
 
+
     context.bot.edit_message_text(text="Updating database ...",
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
                                   reply_markup=corona_menu_keyboard(country_list))
+
+    corona_updater.update_database()
 
     context.bot.edit_message_text(text="Database updated successfully.",
                                   chat_id=query.message.chat_id,
