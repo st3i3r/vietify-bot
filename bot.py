@@ -587,7 +587,7 @@ if __name__ == '__main__':
         main(use_proxy=USE_PROXY)
         sched = BlockingScheduler()
 
-        @sched.scheduled_job('interval', hours=1)
+        @sched.scheduled_job('interval', minutes=30)
         def ping_bot():
             HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
             BOT_TOKEN = os.environ.get("BOT_TOKEN")
