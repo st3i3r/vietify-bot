@@ -356,7 +356,7 @@ def prev_music_page(update, context):
 
 def callback_file_select(update, context):
     query = update.callback_query
-    music_list = context.chat_data["music_list"]
+    music_list = context.chat_data.get("music_list", list_s3_music())
     data = query.data
     index = int(data.split("_")[-1])
 
@@ -364,10 +364,6 @@ def callback_file_select(update, context):
 
     query.answer()
     query.edit_message_text(text=f"Download link: {download_link}")
-
-    # context.chat_data["index"] = index
-    # context.chat_data["music_list"] = music_list
-    # upload_music_to_bot(update, context)
 
 
 def download_audio(update, context):
@@ -399,7 +395,7 @@ def callback_country_select(update, context):
 
     query = update.callback_query
     country = query.data.split('corona_')[-1]
-    country_list = context.chat_data.get('country_list', [])
+    country_list = context.chat_data.get('country_list', ['Vietnam', 'Russia', 'USA', 'Canada', 'World'])
 
     context.bot.edit_message_text(text=corona_updater.get_by_country(country),
                                   chat_id=query.message.chat_id,
