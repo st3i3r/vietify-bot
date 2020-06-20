@@ -16,6 +16,7 @@ import configparser
 from lxml.html import fromstring
 from itertools import cycle
 from YoutubeDownloader import youtubedl
+from apscheduler.schedulers.blocking import BlockingScheduler
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -58,7 +59,7 @@ elif mode == "prod":
         updater.start_webhook(listen='0.0.0.0',
                               port=PORT,
                               url_path=BOT_TOKEN)
-        updater.bot.setWebhook(f"https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}")
+        updater.bot.setWebhook(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
 
 else:
     logging.error("No mode specified.")
@@ -586,6 +587,20 @@ def main(*, use_proxy=True):
 if __name__ == '__main__':
     if mode == "prod":
         main(use_proxy=USE_PROXY)
+        sched = BlockingScheduler()
+
+        @sched.scheduled_job('interval', minutes=1)
+        def ping_bot():
+            if mode == 'prod':
+                HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
+                BOT_TOKEN = os.environ.get("BOT_TOKEN")
+                r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
+                print("Send request to bot")
+            else:
+                pass
+
+        sched.start()
+
     else:
         logging.info("Getting proxy list.")
         proxies = get_proxies()
