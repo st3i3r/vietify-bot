@@ -589,7 +589,7 @@ if __name__ == '__main__':
             BOT_TOKEN = os.environ.get("BOT_TOKEN")
             r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
 
-        @sched.scheduled_job('cron', year='*', month='*', day='*', hour=0, minute=0)
+        @sched.scheduled_job('interval', minute=30)
         def update_database():
             corona_updater.update_database()
 
