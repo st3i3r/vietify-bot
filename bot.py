@@ -97,7 +97,7 @@ def get_weather_by_city(city):
                   'Description: ' + weather_info['weather'][0]['description'],
                   'Temperature: ' + (str(weather_info["main"]["temp"]) + '°C'),
                   'Feels like: ' + (str(weather_info["main"]["feels_like"]) + '°C'),
-                  f'Last updated: {datetime.datetime.now().strftime("%d %b %H %M")}']
+                  f'Last updated: {datetime.datetime.now().strftime("%d %b %H:%M")}']
 
     except KeyError:
         result = ['City not found.']
