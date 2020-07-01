@@ -16,6 +16,7 @@ from lxml.html import fromstring
 from itertools import cycle
 from YoutubeDownloader import youtubedl
 from apscheduler.schedulers.blocking import BlockingScheduler
+import datetime
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -32,13 +33,15 @@ if mode == "dev":
     DOG_URL = config["dog"]["DOG_URL"]
     MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
     REST_URI = config["aws"]["rest_uri"]
+    WEATHER_URI = config['weather']['URI']
+    WEATHER_API_KEY = config['weather']['API_KEY']
     USE_PROXY = False
 
 
     def run(updater):
         logging.info(f"Running bot in dev mode.")
         updater.start_polling()
-        #updater.idle()
+        # updater.idle()
 
 elif mode == "prod":
     AWS_ID = os.environ.get("AWS_ID")
@@ -79,6 +82,24 @@ def get_proxies():
             port = i[1].text
             proxies.add("https://" + ":".join([host, port]))
     return proxies
+
+
+def get_weather_by_city(city):
+    r = requests.get(WEATHER_URI.format(city=city, api_key=WEATHER_API_KEY))
+    weather_info = json.loads(r.text)
+
+    try:
+        result = ['City: ' + weather_info['name'],
+                  'Weather: ' + weather_info['weather'][0]['main'],
+                  'Description: ' + weather_info['weather'][0]['description'],
+                  'Temperature: ' + (str(weather_info["main"]["temp"]) + '°C'),
+                  'Feels like: ' + (str(weather_info["main"]["feels_like"]) + '°C'),
+                  f'Last updated: {datetime.datetime.now().strftime("%d %b %H %M")}']
+
+    except KeyError:
+        result = ['City not found.']
+
+    return '\n'.join(result)
 
 
 # AWS things
@@ -187,27 +208,28 @@ def get_dog_img():
 
 
 def main_menu_keyboard():
-    keyboard = [[InlineKeyboardButton("Music", callback_data="music_menu"),
-                 InlineKeyboardButton("Corona Virus", callback_data="corona_menu"),
-                 InlineKeyboardButton("Dog Image", callback_data="dog_image")],
-                [InlineKeyboardButton("Youtube Downloader", callback_data="youtube-dl-help")]]
+    keyboard = [[InlineKeyboardButton('Music', callback_data='music-menu'),
+                 InlineKeyboardButton('Corona Virus', callback_data='corona-menu'),
+                 InlineKeyboardButton('Dog Image', callback_data='dog-image')],
+                [InlineKeyboardButton('OpenWeatherMap', callback_data='weather-menu')],
+                [InlineKeyboardButton('Youtube Downloader', callback_data='youtube-dl-help')]]
 
     return InlineKeyboardMarkup(keyboard)
 
 
 def music_menu_keyboard():
-    keyboard = [[InlineKeyboardButton("List all files", callback_data='list_all_files'),
-                 InlineKeyboardButton("Browse", callback_data="music_list")],
-                [InlineKeyboardButton("Main Menu", callback_data="main_menu")]]
+    keyboard = [[InlineKeyboardButton('List all files', callback_data='list-all-files'),
+                 InlineKeyboardButton('Browse', callback_data='music-list')],
+                [InlineKeyboardButton('Main Menu', callback_data='main-menu')]]
 
     return InlineKeyboardMarkup(keyboard)
 
 
 def youtube_menu_keyboard():
-    keyboard = [[InlineKeyboardButton("Get video", callback_data='download_video'),
-                 InlineKeyboardButton("Get audio", callback_data='download_audio')],
-                [InlineKeyboardButton("Upload audio to S3 AWS", callback_data='youtube_audio_to_s3')],
-                [InlineKeyboardButton("Upload video to S3 AWS", callback_data='youtube_video_to_s3')]]
+    keyboard = [[InlineKeyboardButton("Get video", callback_data='download-video'),
+                 InlineKeyboardButton("Get audio", callback_data='download-audio')],
+                [InlineKeyboardButton("Upload audio to S3 AWS", callback_data='youtube-audio-to-s3')],
+                [InlineKeyboardButton("Upload video to S3 AWS", callback_data='youtube-video-to-s3')]]
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -222,16 +244,16 @@ def music_list_keyboard(start=0, paginator=8):
         paginator = len(files) - start
 
     for index in range(start, start + paginator):
-        keyboard.append([InlineKeyboardButton(str(files[index]), callback_data="music_" + str(index))])
+        keyboard.append([InlineKeyboardButton(str(files[index]), callback_data='-'.join(['music', str(index)]))])
 
     if paginator < len(music_list):
-        keyboard.append([InlineKeyboardButton("Next", callback_data="next_page")])
+        keyboard.append([InlineKeyboardButton("Next", callback_data='next-page')])
 
     if start >= paginator:
-        keyboard[-1].insert(0, InlineKeyboardButton("Back", callback_data="prev_page"))
+        keyboard[-1].insert(0, InlineKeyboardButton("Back", callback_data='prev-page'))
 
-    keyboard.append([InlineKeyboardButton("Music Menu", callback_data="music_menu")])
-    keyboard.append([InlineKeyboardButton("Main Menu", callback_data="main_menu")])
+    keyboard.append([InlineKeyboardButton("Music Menu", callback_data='music-menu')])
+    keyboard.append([InlineKeyboardButton("Main Menu", callback_data='main-menu')])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -239,10 +261,20 @@ def music_list_keyboard(start=0, paginator=8):
 def corona_menu_keyboard(country_list):
     keyboard = [[]]
     for country in country_list:
-        keyboard[0].append(InlineKeyboardButton(str(country), callback_data="corona_" + str(country)))
+        keyboard[0].append(InlineKeyboardButton(str(country), callback_data='-'.join(['corona', str(country)])))
 
-    keyboard.append([InlineKeyboardButton("Manually update database", callback_data="update_corona_data")])
-    keyboard.append([InlineKeyboardButton("Main Menu", callback_data="main_menu")])
+    keyboard.append([InlineKeyboardButton('Manually update database', callback_data='update-corona-data')])
+    keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def weather_menu_keyboard(city_list):
+    keyboard = [[]]
+    for city in city_list:
+        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['weather', city])))
+
+    keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -281,6 +313,18 @@ def corona_menu(update, context):
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
                                   reply_markup=corona_menu_keyboard(country_list))
+
+
+def weather_menu(update, context):
+    query = update.callback_query
+    city_list = ['Danang', 'Moscow', 'Hanoi', 'HoChiMinh']
+
+    query.edit_message_text('Getting weather info ...')
+
+    context.bot.edit_message_text(text='Get weather by city.',
+                                  chat_id=query.message.chat_id,
+                                  message_id=query.message.message_id,
+                                  reply_markup=weather_menu_keyboard(city_list))
 
 
 def list_all_files(update, context):
@@ -403,12 +447,24 @@ def callback_country_select(update, context):
                                   reply_markup=corona_menu_keyboard(country_list))
 
 
+def callback_city_select(update, context):
+    """Send weather info of selected country"""
+    query = update.callback_query
+    city = query.data.split('-')[-1]
+    logging.info(city)
+
+    city_list = context.chat_data.get('city_list', ['Danang', 'Moscow', 'Hanoi', 'HoChiMinhCity'])
+    context.bot.edit_message_text(text=get_weather_by_city(city),
+                                  message_id=query.message.message_id,
+                                  chat_id=query.message.chat_id,
+                                  reply_markup=weather_menu_keyboard(city_list))
+
+
 def update_corona_data(update, context):
     """Manually update corona virus data"""
 
     query = update.callback_query
     country_list = context.chat_data['country_list']
-
 
     context.bot.edit_message_text(text="Updating database ...",
                                   chat_id=query.message.chat_id,
@@ -532,12 +588,13 @@ def main(*, use_proxy=True):
 
     start_handler = CommandHandler('start', start_bot)
     inline_caps_handler = InlineQueryHandler(inline_caps)
-    dog_handler = CallbackQueryHandler(dog, pattern="dog_image")
+    dog_handler = CallbackQueryHandler(dog, pattern="dog-image")
     help_handler = CommandHandler('help', help_bot)
     music_handler = CommandHandler('music', list_all_files)
-    main_menu_handler = CallbackQueryHandler(main_menu, pattern='main_menu')
-    music_menu_handler = CallbackQueryHandler(music_menu, pattern='music_menu')
-    corona_handler = CallbackQueryHandler(corona_menu, pattern="corona_menu")
+    main_menu_handler = CallbackQueryHandler(main_menu, pattern='main-menu')
+    music_menu_handler = CallbackQueryHandler(music_menu, pattern='music-menu')
+    corona_menu_handler = CallbackQueryHandler(corona_menu, pattern="corona-menu")
+    weather_menu_handler = CallbackQueryHandler(weather_menu, pattern='weather-menu')
     set_timer_handler = CommandHandler('timer', set_timer)
     unknown_handler = MessageHandler(Filters.command, unknown)
     echo_back_handler = MessageHandler(Filters.text, echo_back)
@@ -550,19 +607,22 @@ def main(*, use_proxy=True):
     dispatcher.add_handler(main_menu_handler)
 
     dispatcher.add_handler(music_menu_handler)
-    dispatcher.add_handler(CallbackQueryHandler(list_all_files, pattern="list_all_files"))
-    dispatcher.add_handler(CallbackQueryHandler(music_list, pattern="music_list"))
-    dispatcher.add_handler(CallbackQueryHandler(callback_file_select, pattern="^music_[0-9]+$"))
-    dispatcher.add_handler(CallbackQueryHandler(next_music_page, pattern="next_page"))
-    dispatcher.add_handler(CallbackQueryHandler(prev_music_page, pattern="prev_page"))
+    dispatcher.add_handler(CallbackQueryHandler(list_all_files, pattern='list-all-files'))
+    dispatcher.add_handler(CallbackQueryHandler(music_list, pattern='music-list'))
+    dispatcher.add_handler(CallbackQueryHandler(callback_file_select, pattern='^music-[0-9]+$'))
+    dispatcher.add_handler(CallbackQueryHandler(next_music_page, pattern="next-page"))
+    dispatcher.add_handler(CallbackQueryHandler(prev_music_page, pattern="prev-page"))
 
-    dispatcher.add_handler(corona_handler)
-    dispatcher.add_handler(CallbackQueryHandler(callback_country_select, pattern="^corona_[a-zA-Z]+$"))
-    dispatcher.add_handler(CallbackQueryHandler(update_corona_data, pattern="update_corona_data"))
+    dispatcher.add_handler(corona_menu_handler)
+    dispatcher.add_handler(CallbackQueryHandler(callback_country_select, pattern='^corona-[a-zA-Z]+$'))
+    dispatcher.add_handler(CallbackQueryHandler(update_corona_data, pattern='update-corona-data'))
+
+    dispatcher.add_handler(weather_menu_handler)
+    dispatcher.add_handler(CallbackQueryHandler(callback_city_select, pattern='^weather-[a-zA-Z]+$'))
 
     dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be|youtube.com'), youtube_link_handle))
-    dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download_audio'))
-    dispatcher.add_handler(CallbackQueryHandler(download_video, pattern='download_video'))
+    dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download-audio'))
+    dispatcher.add_handler(CallbackQueryHandler(download_video, pattern='download-video'))
     dispatcher.add_handler(CallbackQueryHandler(youtube_download_help, pattern='youtube-dl-help'))
 
     dispatcher.add_handler(set_timer_handler)
@@ -583,34 +643,34 @@ if __name__ == '__main__':
         main(use_proxy=USE_PROXY)
         sched = BlockingScheduler()
 
+
         @sched.scheduled_job('interval', minutes=30)
         def ping_bot():
             HEROKU_APP_NAME = os.environ.get("HEROKU_APP_NAME")
             BOT_TOKEN = os.environ.get("BOT_TOKEN")
             r = requests.get(f'https://{HEROKU_APP_NAME}.herokuapp.com/{BOT_TOKEN}')
 
+
         @sched.scheduled_job('interval', minutes=30)
         def update_database():
             corona_updater.update_database()
+
 
         sched.start()
 
     else:
         logging.info("Getting proxy list.")
-        proxies = get_proxies()
-        proxy_pool = cycle(proxies)
+        #proxies = get_proxies()
+        #proxy_pool = cycle(proxies)
+        #proxy = next(proxy_pool)
 
-        while 1:
-            try:
-                proxy = next(proxy_pool)
-                main(use_proxy=USE_PROXY)
-                sched = BlockingScheduler()
+        main(use_proxy=False)
+        sched = BlockingScheduler()
 
-                @sched.scheduled_job('interval', seconds=60)
-                def update_database():
-                    corona_updater.update_database()
 
-                sched.start()
+        @sched.scheduled_job('interval', seconds=60)
+        def update_database():
+            corona_updater.update_database()
 
-            except NetworkError:
-                continue
+
+        sched.start()
