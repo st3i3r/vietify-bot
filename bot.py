@@ -21,12 +21,13 @@ import datetime
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 
-config = configparser.ConfigParser()
-config.read("config.ini")
 
 mode = os.getenv("MODE")
 
 if mode == "dev":
+    config = configparser.ConfigParser()
+    config.read("config.ini")
+
     AWS_ID = config["aws"]["aws_access_key_id"]
     AWS_KEY = config["aws"]["aws_secret_access_key"]
     BOT_TOKEN = config["telegram"]['TOKEN']
@@ -50,6 +51,8 @@ elif mode == "prod":
     DOG_URL = os.environ.get("DOG_URL")
     MUSIC_BUCKET_NAME = os.environ.get("MUSIC_BUCKET_NAME")
     REST_URI = os.environ.get("REST_URI")
+    WEATHER_URI = os.environ.get('WEATHER_URI')
+    WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY')
     USE_PROXY = os.environ.get("USER_PROXY")
 
 
