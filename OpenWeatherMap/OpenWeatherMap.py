@@ -2,16 +2,26 @@ import datetime
 import configparser
 import requests
 import json
+import os
 
-config = configparser.ConfigParser()
-config.read('config.ini')
+mode = os.getenv('MODE')
 
-GEO_URI = config['geocoding']['URI']
-GEO_API_KEY = config['geocoding']['API_KEY']
+if mode == 'dev':
+    config = configparser.ConfigParser()
+    config.read('config.ini')
 
-CURRENT_WEATHER_URI = config['weather']['CURRENT_WEATHER_URI']
-WEATHER_API_KEY = config['weather']['API_KEY']
-ONE_CALL_URI = config['weather']['ONE_CALL_URI']
+    GEO_URI = config['geocoding']['URI']
+    GEO_API_KEY = config['geocoding']['API_KEY']
+
+    WEATHER_API_KEY = config['weather']['API_KEY']
+    ONE_CALL_URI = config['weather']['ONE_CALL_URI']
+
+elif mode == 'prod':
+    GEO_URI = 'https://maps.googleapis.com/maps/api/geocode/json?address={address}&key={api_key}'
+    GEO_API_KEY = os.environ.get('GEO_API_KEY')
+    
+    ONE_CALL_URI = 'https://api.openweathermap.org/data/2.5/onecall?lat={lat}&lon={lon}&exclude={part}&appid={api_key}&units=metric'
+    WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY')
 
 
 def cache(fn):

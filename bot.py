@@ -51,8 +51,6 @@ elif mode == "prod":
     DOG_URL = os.environ.get("DOG_URL")
     MUSIC_BUCKET_NAME = os.environ.get("MUSIC_BUCKET_NAME")
     REST_URI = os.environ.get("REST_URI")
-    WEATHER_URI = os.environ.get('WEATHER_URI')
-    WEATHER_API_KEY = os.environ.get('WEATHER_API_KEY')
     USE_PROXY = os.environ.get("USER_PROXY")
 
 
