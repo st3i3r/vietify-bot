@@ -17,6 +17,7 @@ from itertools import cycle
 from YoutubeDownloader import youtubedl
 from apscheduler.schedulers.blocking import BlockingScheduler
 import datetime
+from OpenWeatherMap import OpenWeatherMap
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -34,8 +35,7 @@ if mode == "dev":
     DOG_URL = config["dog"]["DOG_URL"]
     MUSIC_BUCKET_NAME = config["aws"]["music_bucket"]
     REST_URI = config["aws"]["rest_uri"]
-    WEATHER_URI = config['weather']['URI']
-    WEATHER_API_KEY = config['weather']['API_KEY']
+
     USE_PROXY = False
 
 
@@ -85,24 +85,6 @@ def get_proxies():
             port = i[1].text
             proxies.add("https://" + ":".join([host, port]))
     return proxies
-
-
-def get_weather_by_city(city):
-    r = requests.get(WEATHER_URI.format(city=city, api_key=WEATHER_API_KEY))
-    weather_info = json.loads(r.text)
-
-    try:
-        result = ['City: ' + weather_info['name'],
-                  'Weather: ' + weather_info['weather'][0]['main'],
-                  'Description: ' + weather_info['weather'][0]['description'],
-                  'Temperature: ' + (str(weather_info["main"]["temp"]) + '°C'),
-                  'Feels like: ' + (str(weather_info["main"]["feels_like"]) + '°C'),
-                  f'Last updated: {datetime.datetime.now().strftime("%d %b %H:%M")}']
-
-    except KeyError:
-        result = ['City not found.']
-
-    return '\n'.join(result)
 
 
 # AWS things
@@ -214,7 +196,7 @@ def main_menu_keyboard():
     keyboard = [[InlineKeyboardButton('Music', callback_data='music-menu'),
                  InlineKeyboardButton('Corona Virus', callback_data='corona-menu'),
                  InlineKeyboardButton('Dog Image', callback_data='dog-image')],
-                [InlineKeyboardButton('OpenWeatherMap', callback_data='weather-menu')],
+                [InlineKeyboardButton('OpenWeatherMap', callback_data='weather-options-menu')],
                 [InlineKeyboardButton('Youtube Downloader', callback_data='youtube-dl-help')]]
 
     return InlineKeyboardMarkup(keyboard)
@@ -272,12 +254,38 @@ def corona_menu_keyboard(country_list):
     return InlineKeyboardMarkup(keyboard)
 
 
-def weather_menu_keyboard(city_list):
+def current_weather_menu_keyboard(city_list):
+    """City keyboard for Open Map Weather"""
+
     keyboard = [[]]
     for city in city_list:
-        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['weather', city])))
+        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['current-weather', city.replace(' ', '')])))
 
+    keyboard.append([InlineKeyboardButton('Back', callback_data='weather-options-menu')])
     keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def next_days_weather_menu_keyboard(city_list):
+    """City keyboard for Open Map Weather"""
+
+    keyboard = [[]]
+    for city in city_list:
+        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['next-days-weather', city.replace(' ', '')])))
+
+    keyboard.append([InlineKeyboardButton('Back', callback_data='weather-options-menu')])
+    keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def weather_options_keyboard():
+    """Options for Open Map Weather"""
+
+    keyboard = [[InlineKeyboardButton('Current Weather', callback_data='option-current-weather'),
+                 InlineKeyboardButton('Next 4 Days', callback_data='option-next-days')],
+                [InlineKeyboardButton('Main Menu', callback_data='main-menu')]]
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -303,13 +311,6 @@ def corona_menu(update, context):
     country_list = ["Vietnam", "Russia", "USA", "World", "Europe"]
 
     query.edit_message_text("Fetching data ...")
-
-    corona_data = {}
-    for _country in country_list:
-        if _country not in corona_data:
-            corona_data[_country] = corona_updater.get_by_country(_country)
-
-    context.chat_data['corona_data'] = corona_data
     context.chat_data['country_list'] = country_list
 
     context.bot.edit_message_text(text="Get corona virus data.",
@@ -318,16 +319,38 @@ def corona_menu(update, context):
                                   reply_markup=corona_menu_keyboard(country_list))
 
 
-def weather_menu(update, context):
+def weather_options_menu(update, context):
     query = update.callback_query
-    city_list = ['Danang', 'Moscow', 'Hanoi', 'HoChiMinh']
 
+    city_list = ['Da Nang', 'Moscow', 'Ha Noi', 'Ho Chi Minh']
+    context.chat_data['city_list'] = city_list
+
+    context.bot.edit_message_text(text='OpenWeatherMap options.',
+                                  message_id=query.message.message_id,
+                                  chat_id=query.message.chat_id,
+                                  reply_markup=weather_options_keyboard())
+
+
+def current_weather_menu(update, context):
+    query = update.callback_query
     query.edit_message_text('Getting weather info ...')
 
+    city_list = context.chat_data.get('city_list', ['Moscow', 'Da Nang', 'Hanoi', 'Ho Chi Minh City'])
     context.bot.edit_message_text(text='Get weather by city.',
                                   chat_id=query.message.chat_id,
                                   message_id=query.message.message_id,
-                                  reply_markup=weather_menu_keyboard(city_list))
+                                  reply_markup=current_weather_menu_keyboard(city_list))
+
+
+def next_days_weather_menu(update, context):
+    query = update.callback_query
+    query.edit_message_text('Getting weather info for next few days...')
+
+    city_list = context.chat_data.get('city_list', ['Moscow', 'Da Nang', 'Hanoi', 'Ho Chi Minh City'])
+    context.bot.edit_message_text(text='Get weather forecast by city.',
+                                  chat_id=query.message.chat_id,
+                                  message_id=query.message.message_id,
+                                  reply_markup=next_days_weather_menu_keyboard(city_list))
 
 
 def list_all_files(update, context):
@@ -441,7 +464,7 @@ def callback_country_select(update, context):
     """Send corona virus data of selected country"""
 
     query = update.callback_query
-    country = query.data.split('corona_')[-1]
+    country = query.data.split('corona-')[-1]
     country_list = context.chat_data.get('country_list', ['Vietnam', 'Russia', 'USA', 'Canada', 'World'])
 
     context.bot.edit_message_text(text=corona_updater.get_by_country(country),
@@ -450,17 +473,41 @@ def callback_country_select(update, context):
                                   reply_markup=corona_menu_keyboard(country_list))
 
 
-def callback_city_select(update, context):
+def city_current_weather_select(update, context):
     """Send weather info of selected country"""
     query = update.callback_query
     city = query.data.split('-')[-1]
     logging.info(city)
 
-    city_list = context.chat_data.get('city_list', ['Danang', 'Moscow', 'Hanoi', 'HoChiMinhCity'])
-    context.bot.edit_message_text(text=get_weather_by_city(city),
+    city_list = context.chat_data.get('city_list', ['Moscow', 'Da Nang', 'Hanoi', 'Ho Chi Minh City'])
+
+    context.bot.edit_message_text(text='Getting current weather forecast ...',
                                   message_id=query.message.message_id,
                                   chat_id=query.message.chat_id,
-                                  reply_markup=weather_menu_keyboard(city_list))
+                                  reply_markup=current_weather_menu_keyboard(city_list))
+
+    context.bot.edit_message_text(text=OpenWeatherMap.current_weather(city),
+                                  message_id=query.message.message_id,
+                                  chat_id=query.message.chat_id,
+                                  reply_markup=current_weather_menu_keyboard(city_list))
+
+
+def city_next_days_weather_select(update, context):
+    """Send weather info of selected country"""
+    query = update.callback_query
+    city = query.data.split('-')[-1]
+
+    city_list = context.chat_data.get('city_list', ['Moscow', 'Da Nang', 'Ha Noi', 'Ho Chi Minh City'])
+
+    context.bot.edit_message_text(text='Getting weather forecast for next fews day ...',
+                                  message_id=query.message.message_id,
+                                  chat_id=query.message.chat_id,
+                                  reply_markup=next_days_weather_menu_keyboard(city_list))
+
+    context.bot.edit_message_text(text=OpenWeatherMap.get_weather_data(city),
+                                  message_id=query.message.message_id,
+                                  chat_id=query.message.chat_id,
+                                  reply_markup=next_days_weather_menu_keyboard(city_list))
 
 
 def update_corona_data(update, context):
@@ -597,7 +644,7 @@ def main(*, use_proxy=True):
     main_menu_handler = CallbackQueryHandler(main_menu, pattern='main-menu')
     music_menu_handler = CallbackQueryHandler(music_menu, pattern='music-menu')
     corona_menu_handler = CallbackQueryHandler(corona_menu, pattern="corona-menu")
-    weather_menu_handler = CallbackQueryHandler(weather_menu, pattern='weather-menu')
+    weather_menu_handler = CallbackQueryHandler(weather_options_menu, pattern='weather-options-menu')
     set_timer_handler = CommandHandler('timer', set_timer)
     unknown_handler = MessageHandler(Filters.command, unknown)
     echo_back_handler = MessageHandler(Filters.text, echo_back)
@@ -621,7 +668,10 @@ def main(*, use_proxy=True):
     dispatcher.add_handler(CallbackQueryHandler(update_corona_data, pattern='update-corona-data'))
 
     dispatcher.add_handler(weather_menu_handler)
-    dispatcher.add_handler(CallbackQueryHandler(callback_city_select, pattern='^weather-[a-zA-Z]+$'))
+    dispatcher.add_handler(CallbackQueryHandler(current_weather_menu, pattern='option-current-weather'))
+    dispatcher.add_handler(CallbackQueryHandler(next_days_weather_menu, pattern='option-next-days'))
+    dispatcher.add_handler(CallbackQueryHandler(city_current_weather_select, pattern='^current-weather-[a-zA-Z]+$'))
+    dispatcher.add_handler(CallbackQueryHandler(city_next_days_weather_select, pattern='^next-days-weather-[a-zA-Z]+$'))
 
     dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be|youtube.com'), youtube_link_handle))
     dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download-audio'))

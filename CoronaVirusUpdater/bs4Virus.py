@@ -38,7 +38,6 @@ class VirusUpdater:
 
     def __init__(self):
         self.url = 'https://www.worldometers.info/coronavirus/#countries/'
-        self.use_cache = True
         self.data = None
         self.last_updated = None
 
@@ -91,8 +90,9 @@ class VirusUpdater:
             index = self.data.index[self.data['countries'] == country.lower()]
             data = self.data.loc[index[0]].to_string()
             data += f"\nLast updated: {self.last_updated.strftime('%d %b %H:%M %Z')}"
-        except IndexError:
+        except IndexError as e:
             data = "Country not found."
+            print(e)
 
         return data
 
@@ -102,6 +102,6 @@ class VirusUpdater:
 
 if __name__ == '__main__':
     a = VirusUpdater()
-    print(a.get_by_country("Vietnam", use_cache=True))
+    print(a.get_by_country("Vietnam"))
     time.sleep(10)
-    print(a.get_by_country("Vietnam", use_cache=False))
+    print(a.get_by_country("Vietnam"))
