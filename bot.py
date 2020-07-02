@@ -244,7 +244,7 @@ def music_list_keyboard(start=0, paginator=8):
 def corona_menu_keyboard(country_list):
     keyboard = [[]]
     for country in country_list:
-        keyboard[0].append(InlineKeyboardButton(str(country), callback_data='-'.join(['corona', str(country)])))
+        keyboard[0].append(InlineKeyboardButton(str(country), callback_data='-'.join(['corona', country])))
 
     keyboard.append([InlineKeyboardButton('Manually update database', callback_data='update-corona-data')])
     keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
@@ -257,7 +257,7 @@ def current_weather_menu_keyboard(city_list):
 
     keyboard = [[]]
     for city in city_list:
-        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['current-weather', city.replace(' ', '')])))
+        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['current-weather', city])))
 
     keyboard.append([InlineKeyboardButton('Back', callback_data='weather-options-menu')])
     keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
@@ -270,7 +270,7 @@ def next_days_weather_menu_keyboard(city_list):
 
     keyboard = [[]]
     for city in city_list:
-        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['next-days-weather', city.replace(' ', '')])))
+        keyboard[0].append(InlineKeyboardButton(city, callback_data='-'.join(['next-days-weather', city])))
 
     keyboard.append([InlineKeyboardButton('Back', callback_data='weather-options-menu')])
     keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main-menu')])
@@ -475,7 +475,6 @@ def city_current_weather_select(update, context):
     """Send weather info of selected country"""
     query = update.callback_query
     city = query.data.split('-')[-1]
-    logging.info(city)
 
     city_list = context.chat_data.get('city_list', ['Moscow', 'Da Nang', 'Hanoi', 'Ho Chi Minh City'])
 
@@ -579,7 +578,7 @@ def dog(update, context):
 
 
 def youtube_download_help(update, context):
-    """Help function"""
+    """Send help message for youtube download functionality"""
 
     response = "Send a youtube link to get a downloadable link."
     context.bot.send_message(chat_id=update.effective_chat.id,
@@ -622,14 +621,10 @@ def set_timer(update, context):
     context.job_queue.run_once(callback_alarm, user_timer, context=update.message.chat_id)
 
 
-def main(*, use_proxy=True):
-    logging.info("Running main func.")
-    if use_proxy:
-        request_kwargs = {'proxy_url': proxy}
-        logging.info("Using proxy: {}".format(proxy))
-    else:
-        request_kwargs = {}
-        logging.info("Not using proxy")
+def main(*, use_proxy=False):
+    request_kwargs = None
+    request_kwargs = {'proxy_url': proxy} if use_proxy else None
+
     updater = Updater(token=BOT_TOKEN, use_context=True, request_kwargs=request_kwargs)
     dispatcher = updater.dispatcher
     j_queue = updater.job_queue
@@ -668,8 +663,8 @@ def main(*, use_proxy=True):
     dispatcher.add_handler(weather_menu_handler)
     dispatcher.add_handler(CallbackQueryHandler(current_weather_menu, pattern='option-current-weather'))
     dispatcher.add_handler(CallbackQueryHandler(next_days_weather_menu, pattern='option-next-days'))
-    dispatcher.add_handler(CallbackQueryHandler(city_current_weather_select, pattern='^current-weather-[a-zA-Z]+$'))
-    dispatcher.add_handler(CallbackQueryHandler(city_next_days_weather_select, pattern='^next-days-weather-[a-zA-Z]+$'))
+    dispatcher.add_handler(CallbackQueryHandler(city_current_weather_select, pattern='^current-weather-[a-zA-Z ]+$'))
+    dispatcher.add_handler(CallbackQueryHandler(city_next_days_weather_select, pattern='^next-days-weather-[a-zA-Z ]+$'))
 
     dispatcher.add_handler(MessageHandler(Filters.regex('youtu.be|youtube.com'), youtube_link_handle))
     dispatcher.add_handler(CallbackQueryHandler(download_audio, pattern='download-audio'))
@@ -691,9 +686,8 @@ if __name__ == '__main__':
     corona_updater = bs4Virus.VirusUpdater()
 
     if mode == "prod":
-        main(use_proxy=USE_PROXY)
+        main()
         sched = BlockingScheduler()
-
 
         @sched.scheduled_job('interval', minutes=30)
         def ping_bot():
@@ -706,22 +700,12 @@ if __name__ == '__main__':
         def update_database():
             corona_updater.update_database()
 
-
         sched.start()
 
     else:
-        logging.info("Getting proxy list.")
+        #logging.info("Getting proxy list.")
         #proxies = get_proxies()
         #proxy_pool = cycle(proxies)
         #proxy = next(proxy_pool)
 
         main(use_proxy=False)
-        sched = BlockingScheduler()
-
-
-        @sched.scheduled_job('interval', seconds=60)
-        def update_database():
-            corona_updater.update_database()
-
-
-        sched.start()

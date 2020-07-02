@@ -39,6 +39,8 @@ def cache(fn):
 
 @cache
 def get_coordinates(address):
+    """Convert address to latitude and longtitude coordinates."""
+
     r = requests.get(GEO_URI.format(address=address, api_key=GEO_API_KEY))
     response = json.loads(r.text)
 
@@ -55,12 +57,11 @@ def get_coordinates(address):
 
 
 def current_weather(address):
+    """Get current weather."""
+
     (lat, lon), status = get_coordinates(address)
     r = requests.get(ONE_CALL_URI.format(lat=lat, lon=lon, part='hourly', api_key=WEATHER_API_KEY))
     weather_info = json.loads(r.text)['current']
-
-    for k, v in weather_info.items():
-        print(f'{k}: {v}')
 
     try:
         result = [f'City: {address}',
@@ -79,12 +80,16 @@ def current_weather(address):
 
 
 def get_weather_data(address, part='daily'):
+    """Get weather forecast for next days"""
+
     (lat, lon), status = get_coordinates(address)
     if status == 'OK':
         r = requests.get(ONE_CALL_URI.format(lat=lat, lon=lon, part='hourly', api_key=WEATHER_API_KEY))
         result = json.loads(r.text)
-        weather_info = []
+
         current_time = datetime.datetime.now()
+        weather_info = [f'City: {address}\n'
+                        f'Last updated: {current_time.strftime("%d %b %H:%M:%S")}\n']
         for i in range(4):
             day = (current_time + datetime.timedelta(days=i)).strftime('%d %b %Y')
             weather_info.append(f'{day}\n'
@@ -95,13 +100,11 @@ def get_weather_data(address, part='daily'):
                                 f'feels like: {result[part][i]["feels_like"]["eve"]}\n'
                                 f'Night: {result[part][i]["temp"]["night"]} - '
                                 f'feels like: {result[part][i]["feels_like"]["night"]}\n'
-                                f'Last updated: {current_time.strftime("%d %b %H:%M:%S")}\n'
                                 f'-----------------------------------------')
 
         return '\n'.join(weather_info)
     else:
-        print(f'Error !!! Status code: {status}')
-        return None
+        return f'Error !!! Status code: {status}'
 
 
 if __name__ == '__main__':
