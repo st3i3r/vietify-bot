@@ -426,7 +426,7 @@ def callback_file_select(update, context):
     query = update.callback_query
     music_list = context.chat_data.get("music_list", list_s3_music())
     data = query.data
-    index = int(data.split("_")[-1])
+    index = int(data.split('-')[-1])
 
     download_link = ''.join([REST_URI, music_list[index]]).replace(' ', '%20')
 
