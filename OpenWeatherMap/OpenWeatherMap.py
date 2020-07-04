@@ -3,6 +3,7 @@ import configparser
 import requests
 import json
 import os
+from collections import namedtuple
 
 mode = os.getenv('MODE')
 
@@ -41,6 +42,8 @@ def cache(fn):
 def get_coordinates(address):
     """Convert address to latitude and longtitude coordinates."""
 
+    GeoInfo = namedtuple('GeoInfo', 'lat long status')
+
     r = requests.get(GEO_URI.format(address=address, api_key=GEO_API_KEY))
     response = json.loads(r.text)
 
@@ -53,13 +56,13 @@ def get_coordinates(address):
     else:
         lat = long = None
 
-    return (lat, long), status
+    return GeoInfo(lat, long, status)
 
 
 def current_weather(address):
     """Get current weather."""
 
-    (lat, lon), status = get_coordinates(address)
+    lat, lon, status = get_coordinates(address)
     r = requests.get(ONE_CALL_URI.format(lat=lat, lon=lon, part='hourly', api_key=WEATHER_API_KEY))
     weather_info = json.loads(r.text)['current']
 
@@ -82,7 +85,7 @@ def current_weather(address):
 def get_weather_data(address, part='daily'):
     """Get weather forecast for next days"""
 
-    (lat, lon), status = get_coordinates(address)
+    lat, lon, status = get_coordinates(address)
     if status == 'OK':
         r = requests.get(ONE_CALL_URI.format(lat=lat, lon=lon, part='hourly', api_key=WEATHER_API_KEY))
         result = json.loads(r.text)

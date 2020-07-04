@@ -570,11 +570,10 @@ def dog(update, context):
     query = update.callback_query
     dog_img = get_dog_img()
 
-    context.bot.send_message(chat_id=update.effective_chat.id, text=dog_img)
-    context.bot.send_message(chat_id=query.message.chat_id,
-                             message_id=query.message.message_id,
-                             text='Welcome to Mr Rose Bot !!! Are you a 0 or a 1 ?',
-                             reply_markup=main_menu_keyboard())
+    context.bot.edit_message_text(text=dog_img,
+                                  chat_id=query.message.chat_id,
+                                  message_id=query.message.message_id,
+                                  reply_markup=main_menu_keyboard())
 
 
 def youtube_download_help(update, context):
@@ -589,7 +588,6 @@ def youtube_link_handle(update, context):
     """Filter youtube link"""
 
     url = update.message.text
-
     context.chat_data['url'] = url
     update.message.reply_text(text="Choose an option:", reply_markup=youtube_menu_keyboard())
 
