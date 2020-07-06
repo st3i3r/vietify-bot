@@ -1,6 +1,9 @@
 from __future__ import unicode_literals
 import youtube_dl
 
+
+__all__ = ['get_audio_url', 'get_video_url']
+
 ytdl_audio_opts = {
     'format': 'bestaudio/best',
     'noplaylist': True,

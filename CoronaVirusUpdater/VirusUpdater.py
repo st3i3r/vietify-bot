@@ -6,8 +6,11 @@ import pandas
 from functools import wraps
 from apscheduler.schedulers.blocking import BlockingScheduler
 
+__all__ = ['VirusUpdater']
+
 TIME_ZONE = {'Vietnam': 8,
              'Moscow': 3}
+
 
 sched = BlockingScheduler()
 

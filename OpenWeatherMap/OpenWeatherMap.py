@@ -5,6 +5,9 @@ import json
 import os
 from collections import namedtuple
 
+
+__all__ = ['current_weather', 'get_weather_data']
+
 mode = os.getenv('MODE')
 
 if mode == 'dev':
@@ -74,7 +77,7 @@ def current_weather(address):
                   f"Feels like: {weather_info['feels_like']} °C",
                   f"Humidity: {weather_info['humidity']}%",
                   f"Wind speed: {weather_info['wind_speed']} m/s",
-                  f"Last updated: {datetime.datetime.now().strftime('%d %b %H:%M')}"]
+                  f"Last updated: {(datetime.datetime.utcnow() + datetime.timedelta(hours=3)).strftime('%d %b %H:%M')}"]
 
     except KeyError:
         result = ['City not found.']
@@ -90,7 +93,7 @@ def get_weather_data(address, part='daily'):
         r = requests.get(ONE_CALL_URI.format(lat=lat, lon=lon, part='hourly', api_key=WEATHER_API_KEY))
         result = json.loads(r.text)
 
-        current_time = datetime.datetime.now()
+        current_time = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
         weather_info = [f'City: {address}\n'
                         f'Last updated: {current_time.strftime("%d %b %H:%M:%S")}\n']
         for i in range(4):

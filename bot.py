@@ -9,15 +9,15 @@ import sys
 import logging
 import requests
 import json
-from CoronaVirusUpdater import bs4Virus
+import CoronaVirusUpdater
 import boto3
 import configparser
 from lxml.html import fromstring
 from itertools import cycle
-from YoutubeDownloader import youtubedl
 from apscheduler.schedulers.blocking import BlockingScheduler
 import datetime
-from OpenWeatherMap import OpenWeatherMap
+import OpenWeatherMap
+import YoutubeDownloader
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -440,7 +440,7 @@ def download_audio(update, context):
     query = update.callback_query
     url = context.chat_data['url']
     logging.info(f"Getting download link for {url}")
-    link = youtubedl.get_audio_url(url)
+    link = YoutubeDownloader.get_audio_url(url)
 
     query.edit_message_text(f"Audio download link: {link}")
 
@@ -452,7 +452,7 @@ def download_video(update, context):
     query = update.callback_query
     url = context.chat_data['url']
     logging.info(f"Getting download link for {url}")
-    link = youtubedl.get_video_url(url)
+    link = YoutubeDownloader.get_video_url(url)
 
     query.edit_message_text(f"Video download link: {link}")
 
@@ -681,7 +681,7 @@ def main(*, use_proxy=False):
 
 if __name__ == '__main__':
 
-    corona_updater = bs4Virus.VirusUpdater()
+    corona_updater = CoronaVirusUpdater.VirusUpdater()
 
     if mode == "prod":
         main()
@@ -705,5 +705,4 @@ if __name__ == '__main__':
         #proxies = get_proxies()
         #proxy_pool = cycle(proxies)
         #proxy = next(proxy_pool)
-
         main(use_proxy=False)
