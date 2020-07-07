@@ -1,1 +1,0 @@
-from .OpenWeatherMap import *

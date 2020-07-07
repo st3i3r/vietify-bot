@@ -1,23 +1,20 @@
-from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
-from telegram.chataction import ChatAction
-from telegram.error import NetworkError
-from functools import wraps
-from botocore.exceptions import ClientError
 import os
 import sys
 import logging
 import requests
 import json
-import CoronaVirusUpdater
 import boto3
 import configparser
+import utilities
+from functools import wraps
 from lxml.html import fromstring
 from itertools import cycle
+from telegram.chataction import ChatAction
+from botocore.exceptions import ClientError
+from telegram.error import NetworkError
 from apscheduler.schedulers.blocking import BlockingScheduler
-import datetime
-import OpenWeatherMap
-import YoutubeDownloader
+from telegram import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler, Filters, InlineQueryHandler
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
@@ -194,7 +191,7 @@ def main_menu_keyboard():
     keyboard = [[InlineKeyboardButton('Music', callback_data='music-menu'),
                  InlineKeyboardButton('Corona Virus', callback_data='corona-menu'),
                  InlineKeyboardButton('Dog Image', callback_data='dog-image')],
-                [InlineKeyboardButton('OpenWeatherMap', callback_data='weather-options-menu')],
+                [InlineKeyboardButton('weather', callback_data='weather-options-menu')],
                 [InlineKeyboardButton('Youtube Downloader', callback_data='youtube-dl-help')]]
 
     return InlineKeyboardMarkup(keyboard)
@@ -323,7 +320,7 @@ def weather_options_menu(update, context):
     city_list = ['Da Nang', 'Moscow', 'Ha Noi', 'Ho Chi Minh']
     context.chat_data['city_list'] = city_list
 
-    context.bot.edit_message_text(text='OpenWeatherMap options.',
+    context.bot.edit_message_text(text='weather options.',
                                   message_id=query.message.message_id,
                                   chat_id=query.message.chat_id,
                                   reply_markup=weather_options_keyboard())
@@ -440,7 +437,7 @@ def download_audio(update, context):
     query = update.callback_query
     url = context.chat_data['url']
     logging.info(f"Getting download link for {url}")
-    link = YoutubeDownloader.get_audio_url(url)
+    link = utilities.get_audio_url(url)
 
     query.edit_message_text(f"Audio download link: {link}")
 
@@ -452,7 +449,7 @@ def download_video(update, context):
     query = update.callback_query
     url = context.chat_data['url']
     logging.info(f"Getting download link for {url}")
-    link = YoutubeDownloader.get_video_url(url)
+    link = utilities.get_video_url(url)
 
     query.edit_message_text(f"Video download link: {link}")
 
@@ -483,7 +480,7 @@ def city_current_weather_select(update, context):
                                   chat_id=query.message.chat_id,
                                   reply_markup=current_weather_menu_keyboard(city_list))
 
-    context.bot.edit_message_text(text=OpenWeatherMap.current_weather(city),
+    context.bot.edit_message_text(text=utilities.current_weather(city),
                                   message_id=query.message.message_id,
                                   chat_id=query.message.chat_id,
                                   reply_markup=current_weather_menu_keyboard(city_list))
@@ -501,7 +498,7 @@ def city_next_days_weather_select(update, context):
                                   chat_id=query.message.chat_id,
                                   reply_markup=next_days_weather_menu_keyboard(city_list))
 
-    context.bot.edit_message_text(text=OpenWeatherMap.get_weather_data(city),
+    context.bot.edit_message_text(text=utilities.get_weather_data(city),
                                   message_id=query.message.message_id,
                                   chat_id=query.message.chat_id,
                                   reply_markup=next_days_weather_menu_keyboard(city_list))
@@ -681,7 +678,7 @@ def main(*, use_proxy=False):
 
 if __name__ == '__main__':
 
-    corona_updater = CoronaVirusUpdater.VirusUpdater()
+    corona_updater = utilities.VirusUpdater()
 
     if mode == "prod":
         main()
@@ -705,4 +702,7 @@ if __name__ == '__main__':
         #proxies = get_proxies()
         #proxy_pool = cycle(proxies)
         #proxy = next(proxy_pool)
+        for k in dict(globals()).keys():
+            if k[0].isupper():
+                print(k)
         main(use_proxy=False)

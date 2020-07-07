@@ -11,7 +11,6 @@ __all__ = ['VirusUpdater']
 TIME_ZONE = {'Vietnam': 8,
              'Moscow': 3}
 
-
 sched = BlockingScheduler()
 
 

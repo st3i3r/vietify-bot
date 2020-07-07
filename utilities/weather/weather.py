@@ -77,7 +77,7 @@ def current_weather(address):
                   f"Feels like: {weather_info['feels_like']} °C",
                   f"Humidity: {weather_info['humidity']}%",
                   f"Wind speed: {weather_info['wind_speed']} m/s",
-                  f"Last updated: {(datetime.datetime.utcnow() + datetime.timedelta(hours=3)).strftime('%d %b %H:%M')}"]
+                  f"Last updated: {(datetime.datetime.utcnow() + datetime.timedelta(hours=3)).strftime('%d %b %H:%M:%S')}"]
 
     except KeyError:
         result = ['City not found.']
